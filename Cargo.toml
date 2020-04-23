@@ -1,0 +1,25 @@
+[package]
+name = "jsonrpc-client"
+version = "0.1.0"
+authors = ["koushiro <koushiro.cqx@gmail.com>"]
+edition = "2018"
+description = "A JSON-RPC client library"
+
+[features]
+default = ["http"]
+http = ["reqwest"]
+#ws = ["tokio-tungstenite"]
+
+[dependencies]
+async-trait = "0.1"
+futures = "0.3"
+log = "0.4"
+parking_lot = "0.10"
+reqwest = { version = "0.10", features = ["json"], optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+
+#soketto = { version = "0.3", optional = true }
+#tokio = { version = "0.2", default-features = false, features = ["io-util"], optional = true }
+#tokio-tungstenite = { version = "0.10", features = ["tls"], optional = true }
