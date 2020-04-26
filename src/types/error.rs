@@ -1,7 +1,8 @@
-use std::fmt;
+use std::{error, fmt};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::Value;
+
+use crate::types::Value;
 
 /// JSON-RPC error code
 #[derive(Debug, PartialEq, Clone)]
@@ -157,10 +158,10 @@ impl Error {
     }
 }
 
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}: {}", self.code.description(), self.message)
     }
 }
 
-impl std::error::Error for Error {}
+impl error::Error for Error {}

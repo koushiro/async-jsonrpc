@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crate::errors::Result;
 use crate::transports::{BatchTransport, Transport};
-use crate::types::{Call, MethodCall, Params, Request, Response, Version};
+use crate::types::{Call, MethodCall, Params, Request, RequestId, Response, Version};
 
 #[derive(Clone)]
 pub struct HttpTransport {
@@ -40,34 +40,8 @@ impl HttpTransport {
             client: Self::new_client(),
         }
     }
-}
 
-#[async_trait::async_trait(?Send)]
-impl Transport for HttpTransport {
-    fn prepare<M: Into<String>>(&self, method: M, params: Params) -> Call {
-        let id = self.id.fetch_add(1, Ordering::AcqRel);
-        Call::MethodCall(MethodCall {
-            jsonrpc: Some(Version::V2),
-            id,
-            method: method.into(),
-            params,
-        })
-    }
-
-    async fn execute(&self, request: &Request) -> Result<Response> {
-        /*
-        use serde_json::Value;
-        println!("Request: {}", serde_json::to_string(&request).unwrap());
-        let builder = self.client.post(&self.url).json(request);
-        let builder = if let Some(token) = &self.bearer_auth_token {
-            builder.bearer_auth(token)
-        } else {
-            builder
-        };
-        let resp = builder.send().await?.json::<Value>().await?;
-        println!("Response: {}", serde_json::to_string(&resp).unwrap());
-        Ok(serde_json::from_value(resp)?)
-        */
+    async fn send_request(&self, request: &Request) -> Result<Response> {
         let builder = self.client.post(&self.url).json(request);
         let builder = if let Some(token) = &self.bearer_auth_token {
             builder.bearer_auth(token)
@@ -75,6 +49,24 @@ impl Transport for HttpTransport {
             builder
         };
         Ok(builder.send().await?.json().await?)
+    }
+}
+
+#[async_trait::async_trait(?Send)]
+impl Transport for HttpTransport {
+    fn prepare<M: Into<String>>(&self, method: M, params: Params) -> (RequestId, Call) {
+        let id = self.id.fetch_add(1, Ordering::AcqRel);
+        let call = Call::MethodCall(MethodCall {
+            jsonrpc: Some(Version::V2),
+            id,
+            method: method.into(),
+            params,
+        });
+        (id, call)
+    }
+
+    async fn execute(&self, _id: RequestId, request: &Request) -> Result<Response> {
+        self.send_request(request).await
     }
 }
 

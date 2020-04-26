@@ -1,7 +1,7 @@
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::Map as JsonMap;
 
-use crate::types::Error;
+use crate::types::{Error, Value};
 
 /// Request parameters
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -12,7 +12,7 @@ pub enum Params {
     /// Array of values
     Array(Vec<Value>),
     /// Map of values
-    Map(serde_json::Map<String, Value>),
+    Map(JsonMap<String, Value>),
 }
 
 impl Params {
@@ -28,7 +28,7 @@ impl Params {
         };
 
         serde_json::from_value(value)
-            .map_err(|e| Error::invalid_params(format!("Invalid params: {}.", e)))
+            .map_err(|err| Error::invalid_params(format!("Invalid params: {}.", err)))
     }
 
     /// Check for no params, returns Err if any params

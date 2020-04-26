@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
-use crate::types::{Error, ErrorCode, RequestId, Version};
+use crate::types::{Error, ErrorCode, RequestId, Value, Version};
 
 /// Successful response
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -45,8 +44,8 @@ pub enum ResponseOutput {
 }
 
 impl ResponseOutput {
-    /// Creates new output given `Result`, `Id` and `Version`.
-    pub fn from(result: Result<Value, Error>, id: RequestId, jsonrpc: Option<Version>) -> Self {
+    /// Creates new output given  `Version`, `Id` and `Result`.
+    pub fn from(jsonrpc: Option<Version>, id: RequestId, result: Result<Value, Error>) -> Self {
         match result {
             Ok(result) => ResponseOutput::Success(SuccessResponse {
                 jsonrpc,
@@ -64,7 +63,7 @@ impl ResponseOutput {
     }
 
     /// Creates new failure output indicating malformed request.
-    pub fn invalid_request(id: RequestId, jsonrpc: Option<Version>) -> Self {
+    pub fn invalid_request(jsonrpc: Option<Version>, id: RequestId) -> Self {
         ResponseOutput::Failure(FailureResponse {
             jsonrpc,
             id,
@@ -75,17 +74,17 @@ impl ResponseOutput {
 
     /// Get the JSON-RPC protocol version.
     pub fn version(&self) -> Option<Version> {
-        match *self {
-            ResponseOutput::Success(ref s) => s.jsonrpc,
-            ResponseOutput::Failure(ref f) => f.jsonrpc,
+        match self {
+            ResponseOutput::Success(s) => s.jsonrpc,
+            ResponseOutput::Failure(f) => f.jsonrpc,
         }
     }
 
     /// Get the correlation id.
-    pub fn id(&self) -> &RequestId {
-        match *self {
-            ResponseOutput::Success(ref s) => &s.id,
-            ResponseOutput::Failure(ref f) => &f.id,
+    pub fn id(&self) -> RequestId {
+        match self {
+            ResponseOutput::Success(s) => s.id,
+            ResponseOutput::Failure(f) => f.id,
         }
     }
 }
@@ -111,14 +110,14 @@ pub enum Response {
     Batch(Vec<ResponseOutput>),
 }
 
-impl From<FailureResponse> for Response {
-    fn from(failure: FailureResponse) -> Self {
-        Response::Single(ResponseOutput::Failure(failure))
-    }
-}
-
 impl From<SuccessResponse> for Response {
     fn from(success: SuccessResponse) -> Self {
         Response::Single(ResponseOutput::Success(success))
+    }
+}
+
+impl From<FailureResponse> for Response {
+    fn from(failure: FailureResponse) -> Self {
+        Response::Single(ResponseOutput::Failure(failure))
     }
 }

@@ -1,28 +1,27 @@
 #[cfg(feature = "http")]
 mod http;
-// #[cfg(feature = "ws")]
-// mod ws;
+#[cfg(feature = "ws")]
+mod ws;
 
 #[cfg(feature = "http")]
 pub use self::http::*;
-// #[cfg(feature = "ws")]
-// pub use self::ws::*;
+#[cfg(feature = "ws")]
+pub use self::ws::*;
 
 use futures::stream::Stream;
 use serde::de::DeserializeOwned;
-use serde_json::Value;
 
 use crate::errors::Result;
 use crate::types::*;
 
 /// Transport implementation.
 #[async_trait::async_trait(?Send)]
-pub trait Transport: Clone {
+pub trait Transport {
     /// Prepare serializable RPC call for given method with parameters.
-    fn prepare<M: Into<String>>(&self, method: M, params: Params) -> Call;
+    fn prepare<M: Into<String>>(&self, method: M, params: Params) -> (RequestId, Call);
 
     /// Execute prepared RPC call.
-    async fn execute(&self, request: &Request) -> Result<Response>;
+    async fn execute(&self, id: RequestId, request: &Request) -> Result<Response>;
 
     /// Send remote method with given parameters.
     async fn send<M, T>(&self, method: M, params: Params) -> Result<T>
@@ -30,9 +29,18 @@ pub trait Transport: Clone {
         M: Into<String>,
         T: DeserializeOwned,
     {
-        let call = self.prepare(method, params);
+        let (id, call) = self.prepare(method, params);
         let request = Request::Single(call);
-        let response = self.execute(&request).await?;
+        debug!(
+            "Request: {}",
+            serde_json::to_string(&request).expect("Serialize `Request` never fails")
+        );
+
+        let response = self.execute(id, &request).await?;
+        debug!(
+            "Response: {}",
+            serde_json::to_string(&response).expect("Serialize `Response` never fails")
+        );
         match response {
             Response::Single(ResponseOutput::Success(success)) => {
                 Ok(serde_json::from_value(success.result)?)
@@ -47,12 +55,44 @@ pub trait Transport: Clone {
 #[async_trait::async_trait(?Send)]
 pub trait BatchTransport: Transport {
     /// Execute a batch of prepared RPC calls.
-    async fn execute_batch<I>(&self, requests: I) -> Result<Vec<Result<Value>>>
+    async fn execute_batch<I>(&self, requests: I) -> Result<Response>
     where
-        I: IntoIterator<Item = Call>,
+        I: IntoIterator<Item = (RequestId, Call)>,
     {
-        let request = Request::Batch(requests.into_iter().collect::<Vec<_>>());
-        let response = self.execute(&request).await?;
+        let mut iter = requests.into_iter();
+        let (id, first): (RequestId, Option<Call>) = match iter.next() {
+            Some(request) => (request.0, Some(request.1)),
+            None => (0, None),
+        };
+        let calls = first
+            .into_iter()
+            .chain(iter.map(|request| request.1))
+            .collect::<Vec<_>>();
+        let request = Request::Batch(calls);
+        debug!(
+            "Request: {}",
+            serde_json::to_string(&request).expect("Serialize `Request` never fails")
+        );
+
+        self.execute(id, &request).await
+    }
+
+    /// Send a batch of RPC calls with the given method and parameters.
+    async fn send_batch<I, M>(&self, method_and_params: I) -> Result<Vec<Result<Value>>>
+    where
+        I: IntoIterator<Item = (M, Params)>,
+        M: Into<String>,
+    {
+        let requests = method_and_params
+            .into_iter()
+            .map(|(method, params)| self.prepare(method, params))
+            .collect::<Vec<_>>();
+
+        let response = self.execute_batch(requests).await?;
+        debug!(
+            "Response: {}",
+            serde_json::to_string(&response).expect("Serialize `Response` never fails")
+        );
         match response {
             Response::Single(_) => panic!("Expected batch, got single"),
             Response::Batch(outputs) => Ok(outputs
@@ -65,20 +105,8 @@ pub trait BatchTransport: Transport {
         }
     }
 
-    /// Send a batch of RPC calls with the given method and parameters.
-    async fn send_batch<I, M>(&self, method_and_params: I) -> Result<Vec<Result<Value>>>
-    where
-        I: IntoIterator<Item = (M, Params)>,
-        M: Into<String>,
-    {
-        let calls = method_and_params
-            .into_iter()
-            .map(|(method, params)| self.prepare(method, params))
-            .collect::<Vec<_>>();
-        self.execute_batch(calls).await
-    }
-
     /// Send a batch of RPC calls with the same method and the given parameters.
+    /// Once a request result returns an error, which will be returned directly.
     async fn send_batch_same<I, M, T>(&self, method: M, batch_params: I) -> Result<Vec<T>>
     where
         I: IntoIterator<Item = Params>,
@@ -90,12 +118,23 @@ pub trait BatchTransport: Transport {
             .into_iter()
             .map(|params| self.prepare(method.clone(), params))
             .collect::<Vec<_>>();
-        let values = self.execute_batch(calls).await?;
 
+        let response = self.execute_batch(calls).await?;
+        debug!(
+            "Response: {}",
+            serde_json::to_string(&response).expect("Serialize `Response` never fails")
+        );
+        let values = match response {
+            Response::Single(_) => panic!("Expected batch, got single"),
+            Response::Batch(outputs) => outputs,
+        };
         let mut results = Vec::with_capacity(values.len());
         for value in values {
-            let value = value?;
-            let result = serde_json::from_value(value)?;
+            let value = match value {
+                ResponseOutput::Success(success) => success.result,
+                ResponseOutput::Failure(failure) => return Err(failure.error.into()),
+            };
+            let result = serde_json::from_value(value).expect("Deserialize `Value` never fails");
             results.push(result);
         }
         Ok(results)
@@ -103,8 +142,8 @@ pub trait BatchTransport: Transport {
 }
 
 /// A transport implementation supporting pub sub subscriptions.
-#[async_trait::async_trait]
-pub trait DuplexTransport: Transport {
+#[async_trait::async_trait(?Send)]
+pub trait PubsubTransport: Transport {
     /// The type of stream this transport returns
     type NotificationStream: Stream<Item = Result<Value>>;
 
