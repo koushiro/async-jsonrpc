@@ -5,9 +5,6 @@ use crate::types::{Params, Version};
 /// Request Id
 pub type RequestId = usize;
 
-/// Subscription Id
-pub type SubscriptionId = usize;
-
 /// Represents JSON-RPC request which is a method call.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

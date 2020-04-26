@@ -8,8 +8,6 @@ pub enum Error {
     Http(#[from] reqwest::Error),
     #[error("{0}")]
     WebSocket(#[from] async_tungstenite::tungstenite::Error),
-    #[error("Transport error: {0}")]
-    Transport(String),
     #[error("{0}")]
     Rpc(#[from] crate::types::Error),
 }

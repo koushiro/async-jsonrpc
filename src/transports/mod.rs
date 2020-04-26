@@ -145,11 +145,11 @@ pub trait BatchTransport: Transport {
 #[async_trait::async_trait(?Send)]
 pub trait PubsubTransport: Transport {
     /// The type of stream this transport returns
-    type NotificationStream: Stream<Item = Result<Value>>;
+    type NotificationStream: Stream<Item = Value>;
 
     /// Add a subscription to this transport
-    async fn subscribe(&self, id: &SubscriptionId) -> Self::NotificationStream;
+    async fn subscribe(&self, id: SubscriptionId) -> Self::NotificationStream;
 
     /// Remove a subscription from this transport
-    fn unsubscribe(&self, id: &SubscriptionId);
+    fn unsubscribe(&self, id: SubscriptionId);
 }

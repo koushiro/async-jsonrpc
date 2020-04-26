@@ -10,7 +10,7 @@ use futures::stream::{BoxStream, StreamExt};
 use parking_lot::Mutex;
 use tokio::task;
 
-use crate::errors::{Error, Result};
+use crate::errors::Result;
 use crate::transports::{BatchTransport, PubsubTransport, Transport};
 use crate::types::{
     Call, MethodCall, Notification, Params, Request, RequestId, Response, SubscriptionId, Value,
@@ -19,7 +19,7 @@ use crate::types::{
 
 type Pending = oneshot::Sender<Result<Response>>;
 type Pendings = Arc<Mutex<BTreeMap<RequestId, Pending>>>;
-type Subscription = mpsc::UnboundedSender<Result<Value>>;
+type Subscription = mpsc::UnboundedSender<Value>;
 type Subscriptions = Arc<Mutex<BTreeMap<SubscriptionId, Subscription>>>;
 
 type WebSocketSender = mpsc::UnboundedSender<Message>;
@@ -65,7 +65,9 @@ impl WebSocketTransport {
 
         let (tx, rx) = oneshot::channel();
         self.pendings.lock().insert(id, tx);
-        self.sender.unbounded_send(Message::Text(request)).unwrap();
+        self.sender
+            .unbounded_send(Message::Text(request))
+            .expect("");
 
         rx.await.unwrap()
     }
@@ -121,8 +123,29 @@ fn handle_incoming_msg(
     }
 }
 
-fn handle_subscription(_subscriptions: Subscriptions, _msg: &str) {
-    unimplemented!()
+fn handle_subscription(subscriptions: Subscriptions, msg: &str) {
+    if let Ok(notification) = serde_json::from_str::<Notification>(msg) {
+        if let Params::Array(params) = notification.params {
+            let id = params.get(0);
+            let result = params.get(1);
+            if let (Some(Value::Number(id)), Some(result)) = (id, result) {
+                let id = id.as_u64().unwrap() as usize;
+                if let Some(stream) = subscriptions.lock().get(&id) {
+                    stream.unbounded_send(result.clone()).expect("");
+                } else {
+                    warn!("Got notification for unknown subscription (id: {})", id);
+                }
+            } else {
+                error!("Got unsupported notification (id: {:?})", id);
+            }
+        } else {
+            error!(
+                "The Notification Params is not JSON array type: {}",
+                serde_json::to_string(&notification.params)
+                    .expect("Serialize `Params` never fails")
+            );
+        }
+    }
 }
 
 fn handle_pending_response(pendings: Pendings, msg: &str) {
@@ -134,7 +157,7 @@ fn handle_pending_response(pendings: Pendings, msg: &str) {
     };
     if let Some(request) = pendings.lock().remove(&id) {
         if let Err(err) = request.send(response) {
-            println!("Sending a response to deallocated channel: {:?}", err);
+            error!("Sending a response to deallocated channel: {:?}", err);
         }
     }
 }
@@ -162,18 +185,18 @@ impl BatchTransport for WebSocketTransport {}
 
 #[async_trait::async_trait(?Send)]
 impl PubsubTransport for WebSocketTransport {
-    type NotificationStream = BoxStream<'static, Result<Value>>;
+    type NotificationStream = BoxStream<'static, Value>;
 
-    async fn subscribe(&self, id: &SubscriptionId) -> Self::NotificationStream {
+    async fn subscribe(&self, id: SubscriptionId) -> Self::NotificationStream {
         let (tx, rx) = mpsc::unbounded();
-        if self.subscriptions.lock().insert(*id, tx).is_some() {
+        if self.subscriptions.lock().insert(id, tx).is_some() {
             warn!("Replacing already-registered subscription with id {:?}", id);
         }
         Box::pin(rx)
     }
 
-    fn unsubscribe(&self, id: &SubscriptionId) {
-        self.subscriptions.lock().remove(id);
+    fn unsubscribe(&self, id: SubscriptionId) {
+        self.subscriptions.lock().remove(&id);
     }
 }
 
@@ -181,30 +204,30 @@ impl PubsubTransport for WebSocketTransport {
 mod tests {
     use super::*;
 
-    use serde::{Deserialize, Serialize};
-
-    /// Version provides various build-time information.
-    #[derive(Clone, Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "PascalCase")]
-    pub struct Version {
-        /// User version (build version + current commit)
-        pub version: String,
-        /// api_version is a semver version of the rpc api exposed
-        #[serde(rename = "APIVersion")]
-        pub api_version: u32,
-        /// Seconds
-        pub block_delay: u64,
-    }
-
     #[tokio::test]
     async fn test_send_request() {
+        env_logger::init();
         let ws = WebSocketTransport::new("ws://127.0.0.1:1234/rpc/v0");
-        let version = ws
-            .send::<_, Version>("Filecoin.Version", Params::Array(vec![]))
+        let version: Value = ws
+            .send("Filecoin.Version", Params::Array(vec![]))
             .await
             .unwrap();
         println!("Version: {:?}", version);
     }
 
-    // SyncIncomingBlocks
+    #[tokio::test]
+    async fn test_subscription() {
+        env_logger::init();
+        let ws = WebSocketTransport::new("ws://127.0.0.1:1234/rpc/v0");
+        let id: usize = ws
+            .send("Filecoin.SyncIncomingBlocks", Params::Array(vec![]))
+            .await
+            .unwrap();
+        println!("Subscription Id: {}", id);
+
+        let mut stream = ws.subscribe(id).await;
+        while let Some(value) = stream.next().await {
+            println!("Block: {:?}", value);
+        }
+    }
 }
