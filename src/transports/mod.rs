@@ -8,14 +8,13 @@ pub use self::http::*;
 #[cfg(feature = "ws")]
 pub use self::ws::*;
 
-use futures::stream::Stream;
 use serde::de::DeserializeOwned;
 
 use crate::errors::Result;
 use crate::types::*;
 
 /// Transport implementation.
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 pub trait Transport {
     /// Prepare serializable RPC call for given method with parameters.
     fn prepare<M: Into<String>>(&self, method: M, params: Params) -> (RequestId, Call);
@@ -26,7 +25,7 @@ pub trait Transport {
     /// Send remote method with given parameters.
     async fn send<M, T>(&self, method: M, params: Params) -> Result<T>
     where
-        M: Into<String>,
+        M: Into<String> + Send,
         T: DeserializeOwned,
     {
         let (id, call) = self.prepare(method, params);
@@ -52,12 +51,13 @@ pub trait Transport {
 }
 
 /// A transport implementation supporting batch requests
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 pub trait BatchTransport: Transport {
     /// Execute a batch of prepared RPC calls.
     async fn execute_batch<I>(&self, requests: I) -> Result<Response>
     where
-        I: IntoIterator<Item = (RequestId, Call)>,
+        I: IntoIterator<Item = (RequestId, Call)> + Send,
+        I::IntoIter: Send,
     {
         let mut iter = requests.into_iter();
         let (id, first): (RequestId, Option<Call>) = match iter.next() {
@@ -80,13 +80,13 @@ pub trait BatchTransport: Transport {
     /// Send a batch of RPC calls with the given method and parameters.
     async fn send_batch<I, M>(&self, method_and_params: I) -> Result<Vec<Result<Value>>>
     where
-        I: IntoIterator<Item = (M, Params)>,
+        I: IntoIterator<Item = (M, Params)> + Send,
+        I::IntoIter: Send,
         M: Into<String>,
     {
         let requests = method_and_params
             .into_iter()
-            .map(|(method, params)| self.prepare(method, params))
-            .collect::<Vec<_>>();
+            .map(|(method, params)| self.prepare(method, params));
 
         let response = self.execute_batch(requests).await?;
         debug!(
@@ -109,15 +109,15 @@ pub trait BatchTransport: Transport {
     /// Once a request result returns an error, which will be returned directly.
     async fn send_batch_same<I, M, T>(&self, method: M, batch_params: I) -> Result<Vec<T>>
     where
-        I: IntoIterator<Item = Params>,
-        M: Into<String>,
+        I: IntoIterator<Item = Params> + Send,
+        I::IntoIter: Send,
+        M: Into<String> + Send,
         T: DeserializeOwned,
     {
         let method = method.into();
         let calls = batch_params
             .into_iter()
-            .map(|params| self.prepare(method.clone(), params))
-            .collect::<Vec<_>>();
+            .map(|params| self.prepare(method.clone(), params));
 
         let response = self.execute_batch(calls).await?;
         debug!(
@@ -141,14 +141,15 @@ pub trait BatchTransport: Transport {
     }
 }
 
-/// A transport implementation supporting pub sub subscriptions.
-#[async_trait::async_trait(?Send)]
-pub trait PubsubTransport: Transport {
-    /// The type of stream this transport returns
-    type NotificationStream: Stream<Item = Value>;
+/// The type of stream pub-sub transport returns.
+pub type NotificationStream<T> = futures::stream::BoxStream<'static, T>;
 
+/// A transport implementation supporting pub sub subscriptions.
+pub trait PubsubTransport: Transport {
     /// Add a subscription to this transport
-    async fn subscribe(&self, id: SubscriptionId) -> Self::NotificationStream;
+    fn subscribe<T>(&self, id: SubscriptionId) -> NotificationStream<T>
+    where
+        T: DeserializeOwned;
 
     /// Remove a subscription from this transport
     fn unsubscribe(&self, id: SubscriptionId);

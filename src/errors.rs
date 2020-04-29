@@ -1,7 +1,7 @@
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, RpcError>;
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub enum RpcError {
     #[error("{0}")]
     Json(#[from] serde_json::Error),
     #[error("{0}")]
@@ -9,5 +9,5 @@ pub enum Error {
     #[error("{0}")]
     WebSocket(#[from] async_tungstenite::tungstenite::Error),
     #[error("{0}")]
-    Rpc(#[from] crate::types::Error),
+    RpcResponse(#[from] crate::types::Error),
 }
