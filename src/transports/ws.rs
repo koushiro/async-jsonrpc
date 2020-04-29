@@ -3,15 +3,18 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use async_tungstenite::tokio::connect_async;
-use async_tungstenite::tungstenite::Message;
+use async_tungstenite::tungstenite::handshake::client::Request as HandShakeRequest;
+use async_tungstenite::tungstenite::http::header;
+use async_tungstenite::tungstenite::protocol::Message;
 use futures::channel::{mpsc, oneshot};
 use futures::future;
-use futures::stream::{BoxStream, StreamExt};
+use futures::stream::StreamExt;
 use parking_lot::Mutex;
+use serde::de::DeserializeOwned;
 use tokio::task;
 
 use crate::errors::Result;
-use crate::transports::{BatchTransport, PubsubTransport, Transport};
+use crate::transports::{BatchTransport, NotificationStream, PubsubTransport, Transport};
 use crate::types::{
     Call, MethodCall, Notification, Params, Request, RequestId, Response, SubscriptionId, Value,
     Version,
@@ -28,6 +31,7 @@ type WebSocketReceiver = mpsc::UnboundedReceiver<Message>;
 pub struct WebSocketTransport {
     id: Arc<AtomicUsize>,
     _url: String,
+    _bearer_auth_token: Option<String>,
     pendings: Pendings,
     subscriptions: Subscriptions,
     sender: WebSocketSender,
@@ -37,12 +41,16 @@ pub struct WebSocketTransport {
 impl WebSocketTransport {
     pub fn new<U: Into<String>>(url: U) -> Self {
         let url = url.into();
+        let handshake_request = HandShakeRequest::get(&url)
+            .body(())
+            .expect("Handshake HTTP request should be valid");
+
         let pending = Arc::new(Mutex::new(BTreeMap::new()));
         let subscriptions = Arc::new(Mutex::new(BTreeMap::new()));
         let (writer_tx, writer_rx) = mpsc::unbounded();
 
         let handle = task::spawn(ws_task(
-            url.clone(),
+            handshake_request,
             pending.clone(),
             subscriptions.clone(),
             writer_tx.clone(),
@@ -52,6 +60,40 @@ impl WebSocketTransport {
         Self {
             id: Arc::new(AtomicUsize::new(1)),
             _url: url,
+            _bearer_auth_token: None,
+            pendings: pending,
+            subscriptions,
+            sender: writer_tx,
+            _handle: handle,
+        }
+    }
+
+    pub fn new_with_bearer_auth<U: Into<String>, T: Into<String>>(url: U, token: T) -> Self {
+        let url = url.into();
+        let token = token.into();
+
+        let bearer_auth_header_value = format!("Bearer {}", token);
+        let handshake_request = HandShakeRequest::get(&url)
+            .header(header::AUTHORIZATION, bearer_auth_header_value)
+            .body(())
+            .expect("Handshake HTTP request should be valid");
+
+        let pending = Arc::new(Mutex::new(BTreeMap::new()));
+        let subscriptions = Arc::new(Mutex::new(BTreeMap::new()));
+        let (writer_tx, writer_rx) = mpsc::unbounded();
+
+        let handle = task::spawn(ws_task(
+            handshake_request,
+            pending.clone(),
+            subscriptions.clone(),
+            writer_tx.clone(),
+            writer_rx,
+        ));
+
+        Self {
+            id: Arc::new(AtomicUsize::new(1)),
+            _url: url,
+            _bearer_auth_token: Some(token),
             pendings: pending,
             subscriptions,
             sender: writer_tx,
@@ -67,21 +109,23 @@ impl WebSocketTransport {
         self.pendings.lock().insert(id, tx);
         self.sender
             .unbounded_send(Message::Text(request))
-            .expect("");
+            .expect("Sending `Text` Message should be successful");
 
         rx.await.unwrap()
     }
 }
 
 async fn ws_task(
-    url: String,
+    handshake_request: HandShakeRequest,
     pendings: Pendings,
     sub: Subscriptions,
     tx: WebSocketSender,
     rx: WebSocketReceiver,
 ) {
-    let (ws_stream, _) = connect_async(&url).await.expect("Failed to connect");
-    info!("{}: handshake has been successfully completed", url);
+    let (ws_stream, _) = connect_async(handshake_request)
+        .await
+        .expect("Handshake request is valid, but failed to connect");
+    info!("WebSocket handshake has been successfully completed");
     let (sink, stream) = ws_stream.split();
 
     // receive request from WebSocketSender,
@@ -113,11 +157,13 @@ fn handle_incoming_msg(
         Message::Binary(msg) => warn!("Receive `Binary` Message: {:?}", msg),
         Message::Close(msg) => {
             warn!("Receive `Close` Message: {:?}", msg);
-            tx.unbounded_send(Message::Close(msg)).expect("")
+            tx.unbounded_send(Message::Close(msg))
+                .expect("Sending `Close` Message should be successful")
         }
         Message::Ping(msg) => {
             warn!("Receive `Ping` Message: {:?}", msg);
-            tx.unbounded_send(Message::Pong(msg)).expect("")
+            tx.unbounded_send(Message::Pong(msg))
+                .expect("Sending `Pong` Message should be successful")
         }
         Message::Pong(msg) => warn!("Receive `Pong` Message: {:?}", msg),
     }
@@ -131,7 +177,9 @@ fn handle_subscription(subscriptions: Subscriptions, msg: &str) {
             if let (Some(Value::Number(id)), Some(result)) = (id, result) {
                 let id = id.as_u64().unwrap() as usize;
                 if let Some(stream) = subscriptions.lock().get(&id) {
-                    stream.unbounded_send(result.clone()).expect("");
+                    stream
+                        .unbounded_send(result.clone())
+                        .expect("Sending subscription result to the user should be successful");
                 } else {
                     warn!("Got notification for unknown subscription (id: {})", id);
                 }
@@ -162,7 +210,7 @@ fn handle_pending_response(pendings: Pendings, msg: &str) {
     }
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl Transport for WebSocketTransport {
     fn prepare<M: Into<String>>(&self, method: M, params: Params) -> (RequestId, Call) {
         let id = self.id.fetch_add(1, Ordering::AcqRel);
@@ -180,19 +228,21 @@ impl Transport for WebSocketTransport {
     }
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl BatchTransport for WebSocketTransport {}
 
-#[async_trait::async_trait(?Send)]
 impl PubsubTransport for WebSocketTransport {
-    type NotificationStream = BoxStream<'static, Value>;
-
-    async fn subscribe(&self, id: SubscriptionId) -> Self::NotificationStream {
+    fn subscribe<T>(&self, id: SubscriptionId) -> NotificationStream<T>
+    where
+        T: DeserializeOwned,
+    {
         let (tx, rx) = mpsc::unbounded();
         if self.subscriptions.lock().insert(id, tx).is_some() {
             warn!("Replacing already-registered subscription with id {:?}", id);
         }
-        Box::pin(rx)
+        Box::pin(
+            rx.map(|value| serde_json::from_value(value).expect("Deserialize `Value` never fails")),
+        )
     }
 
     fn unsubscribe(&self, id: SubscriptionId) {
@@ -205,14 +255,27 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_send_request() {
-        env_logger::init();
+    async fn test_basic() {
         let ws = WebSocketTransport::new("ws://127.0.0.1:1234/rpc/v0");
+        // Filecoin.Version need read permission
         let version: Value = ws
             .send("Filecoin.Version", Params::Array(vec![]))
             .await
             .unwrap();
         println!("Version: {:?}", version);
+    }
+
+    #[tokio::test]
+    async fn test_with_bearer_auth() {
+        // lotus auth create-token --perm admin
+        let token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXX0.V82x4rrMmyzgLhW0jeBCL6FVN8I6iSnB0Dc05xeZjVE";
+        let http = WebSocketTransport::new_with_bearer_auth("ws://127.0.0.1:1234/rpc/v0", token);
+        // Filecoin.LogList need write permission
+        let log_list: Value = http
+            .send("Filecoin.LogList", Params::Array(vec![]))
+            .await
+            .unwrap();
+        println!("LogList: {:?}", log_list);
     }
 
     #[tokio::test]
@@ -224,8 +287,7 @@ mod tests {
             .await
             .unwrap();
         println!("Subscription Id: {}", id);
-
-        let mut stream = ws.subscribe(id).await;
+        let mut stream = ws.subscribe::<Value>(id);
         while let Some(value) = stream.next().await {
             println!("Block: {:?}", value);
         }
