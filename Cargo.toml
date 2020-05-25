@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["koushiro <koushiro.cqx@gmail.com>"]
 edition = "2018"
 description = "An asynchronous JSON-RPC client library, which supports HTTP and WebSocket"
+readme = "README.md"
 license = "MIT OR Apache-2.0"
 keywords = ["async", "jsonrpc", "client"]
 
