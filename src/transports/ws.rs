@@ -28,6 +28,7 @@ type Subscriptions = Arc<Mutex<BTreeMap<SubscriptionId, Subscription>>>;
 type WebSocketSender = mpsc::UnboundedSender<Message>;
 type WebSocketReceiver = mpsc::UnboundedReceiver<Message>;
 
+///
 pub struct WebSocketTransport {
     id: Arc<AtomicUsize>,
     _url: String,
@@ -39,6 +40,7 @@ pub struct WebSocketTransport {
 }
 
 impl WebSocketTransport {
+    /// Create a new WebSocket transport with given `url`.
     pub fn new<U: Into<String>>(url: U) -> Self {
         let url = url.into();
         let handshake_request = HandShakeRequest::get(&url)
@@ -68,6 +70,7 @@ impl WebSocketTransport {
         }
     }
 
+    /// Create a new WebSocket transport with given `url` and bearer `token`.
     pub fn new_with_bearer_auth<U: Into<String>, T: Into<String>>(url: U, token: T) -> Self {
         let url = url.into();
         let token = token.into();
@@ -247,49 +250,5 @@ impl PubsubTransport for WebSocketTransport {
 
     fn unsubscribe(&self, id: SubscriptionId) {
         self.subscriptions.lock().remove(&id);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_basic() {
-        let ws = WebSocketTransport::new("ws://127.0.0.1:1234/rpc/v0");
-        // Filecoin.Version need read permission
-        let version: Value = ws
-            .send("Filecoin.Version", Params::Array(vec![]))
-            .await
-            .unwrap();
-        println!("Version: {:?}", version);
-    }
-
-    #[tokio::test]
-    async fn test_with_bearer_auth() {
-        // lotus auth create-token --perm admin
-        let token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXX0.V82x4rrMmyzgLhW0jeBCL6FVN8I6iSnB0Dc05xeZjVE";
-        let http = WebSocketTransport::new_with_bearer_auth("ws://127.0.0.1:1234/rpc/v0", token);
-        // Filecoin.LogList need write permission
-        let log_list: Value = http
-            .send("Filecoin.LogList", Params::Array(vec![]))
-            .await
-            .unwrap();
-        println!("LogList: {:?}", log_list);
-    }
-
-    #[tokio::test]
-    async fn test_subscription() {
-        env_logger::init();
-        let ws = WebSocketTransport::new("ws://127.0.0.1:1234/rpc/v0");
-        let id: usize = ws
-            .send("Filecoin.SyncIncomingBlocks", Params::Array(vec![]))
-            .await
-            .unwrap();
-        println!("Subscription Id: {}", id);
-        let mut stream = ws.subscribe::<Value>(id);
-        while let Some(value) = stream.next().await {
-            println!("Block: {:?}", value);
-        }
     }
 }
