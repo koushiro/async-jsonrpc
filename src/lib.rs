@@ -1,3 +1,7 @@
+//! An asynchronous JSON-RPC client library, which supports HTTP and WebSocket.
+
+#![deny(missing_docs)]
+
 #[macro_use]
 extern crate log;
 

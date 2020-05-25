@@ -6,6 +6,7 @@ use crate::errors::Result;
 use crate::transports::{BatchTransport, Transport};
 use crate::types::{Call, MethodCall, Params, Request, RequestId, Response, Version};
 
+/// HTTP transport
 #[derive(Clone)]
 pub struct HttpTransport {
     id: Arc<AtomicUsize>,
@@ -23,6 +24,7 @@ impl HttpTransport {
             .expect("ClientBuilder config is valid; qed")
     }
 
+    /// Create a new HTTP transport with given `url`.
     pub fn new<U: Into<String>>(url: U) -> Self {
         Self {
             id: Default::default(),
@@ -32,6 +34,7 @@ impl HttpTransport {
         }
     }
 
+    /// Create a new HTTP transport with given `url` and bearer `token`.
     pub fn new_with_bearer_auth<U: Into<String>, T: Into<String>>(url: U, token: T) -> Self {
         Self {
             id: Default::default(),
@@ -72,33 +75,3 @@ impl Transport for HttpTransport {
 
 #[async_trait::async_trait]
 impl BatchTransport for HttpTransport {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::types::Value;
-
-    #[tokio::test]
-    async fn test_basic() {
-        let http = HttpTransport::new("http://127.0.0.1:1234/rpc/v0");
-        // Filecoin.Version need read permission
-        let version: Value = http
-            .send("Filecoin.Version", Params::Array(vec![]))
-            .await
-            .unwrap();
-        println!("Version: {:?}", version);
-    }
-
-    #[tokio::test]
-    async fn test_with_bearer_auth() {
-        // lotus auth create-token --perm admin
-        let token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXX0.V82x4rrMmyzgLhW0jeBCL6FVN8I6iSnB0Dc05xeZjVE";
-        let http = HttpTransport::new_with_bearer_auth("http://127.0.0.1:1234/rpc/v0", token);
-        // Filecoin.LogList need write permission
-        let log_list: Value = http
-            .send("Filecoin.LogList", Params::Array(vec![]))
-            .await
-            .unwrap();
-        println!("LogList: {:?}", log_list);
-    }
-}
