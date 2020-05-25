@@ -6,6 +6,7 @@ edition = "2018"
 description = "An asynchronous JSON-RPC client library, which supports HTTP and WebSocket"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/koushiro/async-jsonrpc-client-rs"
 keywords = ["async", "jsonrpc", "client"]
 
 [features]
