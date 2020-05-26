@@ -16,10 +16,10 @@ async fn main() {
     println!("Version: {:?}", version);
 
     // lotus auth create-token --perm admin
-    let token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXX0.V82x4rrMmyzgLhW0jeBCL6FVN8I6iSnB0Dc05xeZjVE";
-    let http = WebSocketTransport::new_with_bearer_auth("ws://127.0.0.1:1234/rpc/v0", token);
+    let token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXX0.zKxsT3HxoYdjy6A8cF1Q3qvJEbCxJb3PcAZ_CM-sf9I";
+    let ws = WebSocketTransport::new_with_bearer_auth("ws://127.0.0.1:1234/rpc/v0", token);
     // Filecoin.LogList need write permission
-    let log_list: Value = http
+    let log_list: Value = ws
         .send("Filecoin.LogList", Params::Array(vec![]))
         .await
         .unwrap();
