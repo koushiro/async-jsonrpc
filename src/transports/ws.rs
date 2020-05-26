@@ -31,12 +31,22 @@ type WebSocketReceiver = mpsc::UnboundedReceiver<Message>;
 ///
 pub struct WebSocketTransport {
     id: Arc<AtomicUsize>,
-    _url: String,
-    _bearer_auth_token: Option<String>,
+    url: String,
+    bearer_auth_token: Option<String>,
     pendings: Pendings,
     subscriptions: Subscriptions,
     sender: WebSocketSender,
     _handle: task::JoinHandle<()>,
+}
+
+impl Clone for WebSocketTransport {
+    fn clone(&self) -> Self {
+        if let Some(token) = &self.bearer_auth_token {
+            Self::new_with_bearer_auth(&self.url, token)
+        } else {
+            Self::new(&self.url)
+        }
+    }
 }
 
 impl WebSocketTransport {
@@ -61,8 +71,8 @@ impl WebSocketTransport {
 
         Self {
             id: Arc::new(AtomicUsize::new(1)),
-            _url: url,
-            _bearer_auth_token: None,
+            url,
+            bearer_auth_token: None,
             pendings: pending,
             subscriptions,
             sender: writer_tx,
@@ -95,8 +105,8 @@ impl WebSocketTransport {
 
         Self {
             id: Arc::new(AtomicUsize::new(1)),
-            _url: url,
-            _bearer_auth_token: Some(token),
+            url,
+            bearer_auth_token: Some(token),
             pendings: pending,
             subscriptions,
             sender: writer_tx,
