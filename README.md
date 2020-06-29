@@ -1,4 +1,4 @@
-# async-jsonrpc-client-rs
+# async-jsonrpc-client
 
 [![Github Actions][ci-svg]][ci-url]
 [![Crates.io][crate-svg]][crate-url]
