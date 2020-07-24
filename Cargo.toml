@@ -1,6 +1,6 @@
 [package]
 name = "async-jsonrpc-client"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["koushiro <koushiro.cqx@gmail.com>"]
 edition = "2018"
 description = "An asynchronous JSON-RPC client library, which supports HTTP and WebSocket"
