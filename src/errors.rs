@@ -14,6 +14,10 @@ pub enum RpcError {
     #[cfg(feature = "http")]
     #[error("{0}")]
     Http(#[from] reqwest::Error),
+    #[cfg(feature = "http-surf")]
+    /// HTTP error (surf).
+    #[error("{0}")]
+    Http(anyhow::Error),
     /// WebSocket error.
     #[cfg(feature = "ws")]
     #[error("{0}")]
