@@ -11,7 +11,6 @@ pub enum RpcError {
     #[error("{0}")]
     RpcResponse(#[from] crate::types::Error),
     /// HTTP error.
-    /// HTTP error (surf).
     #[error("{0}")]
     Http(anyhow::Error),
 }
