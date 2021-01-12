@@ -14,8 +14,4 @@ pub enum RpcError {
     /// HTTP error (surf).
     #[error("{0}")]
     Http(anyhow::Error),
-    /// WebSocket error.
-    #[cfg(feature = "ws")]
-    #[error("{0}")]
-    WebSocket(#[from] async_tungstenite::tungstenite::Error),
 }
