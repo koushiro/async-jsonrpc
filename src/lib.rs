@@ -10,5 +10,5 @@ mod transports;
 mod types;
 
 pub use self::errors::{Result, RpcError};
-pub use self::transports::{HttpTransport, BatchTransport, PubsubTransport, Transport};
+pub use self::transports::{HttpTransport, BatchTransport, Transport};
 pub use self::types::*;

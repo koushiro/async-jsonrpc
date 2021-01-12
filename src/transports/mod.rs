@@ -134,17 +134,3 @@ pub trait BatchTransport: Transport {
         Ok(results)
     }
 }
-
-/// The type of stream pub-sub transport returns.
-pub type NotificationStream<T> = futures::stream::BoxStream<'static, T>;
-
-/// A transport implementation supporting pub sub subscriptions.
-pub trait PubsubTransport: Transport {
-    /// Add a subscription to this transport
-    fn subscribe<T>(&self, id: SubscriptionId) -> NotificationStream<T>
-    where
-        T: DeserializeOwned;
-
-    /// Remove a subscription from this transport
-    fn unsubscribe(&self, id: SubscriptionId);
-}
