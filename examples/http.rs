@@ -1,6 +1,6 @@
-use async_jsonrpc_client::{HttpTransport, Params, Transport, Value};
+use jsonrpc_client::{HttpTransport, Params, Transport, Value};
 
-#[tokio::main]
+#[async_std::main]
 async fn main() {
     env_logger::init();
 

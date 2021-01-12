@@ -1,6 +1,5 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
 
 use crate::errors::Result;
 use crate::transports::{BatchTransport, Transport};
@@ -12,16 +11,12 @@ pub struct HttpTransport {
     id: Arc<AtomicUsize>,
     url: String,
     bearer_auth_token: Option<String>,
-    client: reqwest::Client,
+    client: surf::Client,
 }
 
 impl HttpTransport {
-    fn new_client() -> reqwest::Client {
-        reqwest::Client::builder()
-            .connect_timeout(Duration::from_secs(10))
-            .timeout(Duration::from_secs(30))
-            .build()
-            .expect("ClientBuilder config is valid; qed")
+    fn new_client() -> surf::Client {
+        surf::Client::new()
     }
 
     /// Create a new HTTP transport with given `url`.
@@ -45,13 +40,27 @@ impl HttpTransport {
     }
 
     async fn send_request(&self, request: &Request) -> Result<Response> {
-        let builder = self.client.post(&self.url).json(request);
+        let builder = surf::post(&self.url)
+            .content_type(surf::http::mime::JSON)
+            .body(
+                surf::Body::from_json(request)
+                    .map_err(|err| crate::RpcError::Http(err.into_inner()))?,
+            );
+
+        // let builder = self.client.post(&self.url).json(request);
         let builder = if let Some(token) = &self.bearer_auth_token {
-            builder.bearer_auth(token)
+            builder.header(
+                surf::http::headers::AUTHORIZATION,
+                format!("Bearer {}", token),
+            )
         } else {
             builder
         };
-        Ok(builder.send().await?.json().await?)
+
+        Ok(builder
+            .recv_json()
+            .await
+            .map_err(|err| crate::RpcError::Http(err.into_inner()))?)
     }
 }
 

@@ -1,16 +1,6 @@
-#[cfg(feature = "http")]
 mod http;
-#[cfg(feature = "http-surf")]
-mod http_surf;
-#[cfg(feature = "ws")]
-mod ws;
 
-#[cfg(feature = "http")]
 pub use self::http::*;
-#[cfg(feature = "http-surf")]
-pub use self::http_surf::*;
-#[cfg(feature = "ws")]
-pub use self::ws::*;
 
 use serde::de::DeserializeOwned;
 
