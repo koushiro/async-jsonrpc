@@ -1,11 +1,13 @@
 use std::{error, fmt};
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use crate::types::Value;
 
 /// JSON-RPC error code
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone, Serialize, Deserialize)]
+#[serde(from = "i64")]
+#[serde(into = "i64")]
 pub enum ErrorCode {
     /// Invalid JSON was received by the server.
     /// An error occurred on the server while parsing the JSON text.
@@ -25,14 +27,7 @@ pub enum ErrorCode {
 impl ErrorCode {
     /// Returns integer code value
     pub fn code(&self) -> i64 {
-        match *self {
-            ErrorCode::ParseError => -32700,
-            ErrorCode::InvalidRequest => -32600,
-            ErrorCode::MethodNotFound => -32601,
-            ErrorCode::InvalidParams => -32602,
-            ErrorCode::InternalError => -32603,
-            ErrorCode::ServerError(code) => code,
-        }
+        (*self).into()
     }
 
     /// Returns human-readable description
@@ -48,6 +43,18 @@ impl ErrorCode {
         desc.to_string()
     }
 }
+impl Into<i64> for ErrorCode {
+    fn into(self) -> i64 {
+        match self {
+            ErrorCode::ParseError => -32700,
+            ErrorCode::InvalidRequest => -32600,
+            ErrorCode::MethodNotFound => -32601,
+            ErrorCode::InvalidParams => -32602,
+            ErrorCode::InternalError => -32603,
+            ErrorCode::ServerError(code) => code,
+        }
+    }
+}
 
 impl From<i64> for ErrorCode {
     fn from(code: i64) -> Self {
@@ -59,25 +66,6 @@ impl From<i64> for ErrorCode {
             -32603 => ErrorCode::InternalError,
             code => ErrorCode::ServerError(code),
         }
-    }
-}
-
-impl Serialize for ErrorCode {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_i64(self.code())
-    }
-}
-
-impl<'de> Deserialize<'de> for ErrorCode {
-    fn deserialize<D>(deserializer: D) -> Result<ErrorCode, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let code: i64 = Deserialize::deserialize(deserializer)?;
-        Ok(ErrorCode::from(code))
     }
 }
 

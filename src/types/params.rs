@@ -1,6 +1,6 @@
+use crate::types::Value;
 use serde::{Deserialize, Serialize};
 use serde_json::Map as JsonMap;
-use crate::types::{Value};
 
 /// Request parameters
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

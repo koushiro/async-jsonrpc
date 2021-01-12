@@ -1,4 +1,4 @@
-use serde::{self, Serialize, Deserialize};
+use serde::{self, Deserialize, Serialize};
 
 /// Protocol Version
 #[derive(Debug, PartialEq, Clone, Copy, Hash, Eq, Serialize, Deserialize)]
