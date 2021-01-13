@@ -8,14 +8,14 @@ use crate::types::{Call, MethodCall, Params, Request, RequestId, Response, Versi
 
 /// HTTP transport
 #[derive(Clone)]
-pub struct HttpTransport {
+pub struct HttpReqwestTransport {
     id: Arc<AtomicUsize>,
     url: String,
     bearer_auth_token: Option<String>,
     client: reqwest::Client,
 }
 
-impl HttpTransport {
+impl HttpReqwestTransport {
     fn new_client() -> reqwest::Client {
         reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(10))
@@ -56,7 +56,7 @@ impl HttpTransport {
 }
 
 #[async_trait::async_trait]
-impl Transport for HttpTransport {
+impl Transport for HttpReqwestTransport {
     fn prepare<M: Into<String>>(&self, method: M, params: Params) -> (RequestId, Call) {
         let id = self.id.fetch_add(1, Ordering::AcqRel);
         let call = Call::MethodCall(MethodCall {
@@ -74,4 +74,4 @@ impl Transport for HttpTransport {
 }
 
 #[async_trait::async_trait]
-impl BatchTransport for HttpTransport {}
+impl BatchTransport for HttpReqwestTransport {}

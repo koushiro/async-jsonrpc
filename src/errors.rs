@@ -11,13 +11,13 @@ pub enum RpcError {
     #[error("{0}")]
     RpcResponse(#[from] crate::types::Error),
     /// HTTP error.
-    #[cfg(feature = "http")]
+    #[cfg(feature = "http-reqwest")]
     #[error("{0}")]
-    Http(#[from] reqwest::Error),
+    HttpReqwest(#[from] reqwest::Error),
     #[cfg(feature = "http-surf")]
     /// HTTP error (surf).
     #[error("{0}")]
-    Http(anyhow::Error),
+    HttpSurf(anyhow::Error),
     /// WebSocket error.
     #[cfg(feature = "ws")]
     #[error("{0}")]
