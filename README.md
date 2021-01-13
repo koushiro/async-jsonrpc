@@ -1,18 +1,20 @@
 # async-jsonrpc-client
 
-[![Github Actions][ci-svg]][ci-url]
-[![Crates.io][crate-svg]][crate-url]
-[![License][license-svg]][license-url]
+[![ga-svg]][ga-url]
+[![crates-svg]][crates-url]
+[![docs-svg]][docs-url]
+[![deps-svg]][deps-url]
 
-[ci-svg]: https://github.com/koushiro/async-jsonrpc-client-rs/workflows/build/badge.svg
-[ci-url]: https://github.com/koushiro/async-jsonrpc-client-rs/actions
-[crate-svg]: https://img.shields.io/crates/v/async-jsonrpc-client?style=flat-square
-[crate-url]: https://crates.io/crates/async-jsonrpc-client
-[license-svg]: https://img.shields.io/crates/l/async-jsonrpc-client?style=flat-square
-[license-url]: https://github.com/koushiro/async-jsonrpc-client-rs 
+[ga-svg]: https://github.com/koushiro/async-jsonrpc-client-rs/workflows/build/badge.svg
+[ga-url]: https://github.com/koushiro/async-jsonrpc-client-rs/actions
+[crates-svg]: https://img.shields.io/crates/v/async-jsonrpc-client
+[crates-url]: https://crates.io/crates/async-jsonrpc-client
+[docs-svg]: https://docs.rs/async-jsonrpc-client/badge.svg
+[docs-url]: https://docs.rs/async-jsonrpc-client
+[deps-svg]: https://deps.rs/repo/github/koushiro/async-jsonrpc-client-rs/status.svg
+[deps-url]: https://deps.rs/repo/github/koushiro/async-jsonrpc-client-rs
 
-An asynchronous JSON-RPC client library, written in Rust, 
-which supports HTTP and WebSocket.
+An asynchronous JSON-RPC client library, written in Rust, which supports HTTP and WebSocket.
 
 ## Usage
 
@@ -22,9 +24,7 @@ See the [examples](examples) for details.
 
 Licensed under either of
 
-* Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-* MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT) at your option.
+- [Apache License, Version 2.0](LICENSE-APACHE)
+- [MIT License](LICENSE-MIT)
 
-## Contribution
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, 
-as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+at your option.

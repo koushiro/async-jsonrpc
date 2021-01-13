@@ -7,14 +7,14 @@ use crate::types::{Call, MethodCall, Params, Request, RequestId, Response, Versi
 
 /// HTTP transport
 #[derive(Clone)]
-pub struct HttpTransport {
+pub struct HttpSurfTransport {
     id: Arc<AtomicUsize>,
     url: String,
     bearer_auth_token: Option<String>,
     client: surf::Client,
 }
 
-impl HttpTransport {
+impl HttpSurfTransport {
     fn new_client() -> surf::Client {
         surf::Client::new()
     }
@@ -44,7 +44,7 @@ impl HttpTransport {
             .content_type(surf::http::mime::JSON)
             .body(
                 surf::Body::from_json(request)
-                    .map_err(|err| crate::RpcError::Http(err.into_inner()))?,
+                    .map_err(|err| crate::RpcError::HttpSurf(err.into_inner()))?,
             );
 
         // let builder = self.client.post(&self.url).json(request);
@@ -60,12 +60,12 @@ impl HttpTransport {
         Ok(builder
             .recv_json()
             .await
-            .map_err(|err| crate::RpcError::Http(err.into_inner()))?)
+            .map_err(|err| crate::RpcError::HttpSurf(err.into_inner()))?)
     }
 }
 
 #[async_trait::async_trait]
-impl Transport for HttpTransport {
+impl Transport for HttpSurfTransport {
     fn prepare<M: Into<String>>(&self, method: M, params: Params) -> (RequestId, Call) {
         let id = self.id.fetch_add(1, Ordering::AcqRel);
         let call = Call::MethodCall(MethodCall {
@@ -83,4 +83,4 @@ impl Transport for HttpTransport {
 }
 
 #[async_trait::async_trait]
-impl BatchTransport for HttpTransport {}
+impl BatchTransport for HttpSurfTransport {}

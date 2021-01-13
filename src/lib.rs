@@ -10,10 +10,10 @@ mod transports;
 mod types;
 
 pub use self::errors::{Result, RpcError};
-#[cfg(feature = "http")]
-pub use self::transports::HttpTransport;
+#[cfg(feature = "http-reqwest")]
+pub use self::transports::HttpReqwestTransport;
 #[cfg(feature = "http-surf")]
-pub use self::transports::HttpTransport;
+pub use self::transports::HttpSurfTransport;
 pub use self::transports::{BatchTransport, PubsubTransport, Transport};
 #[cfg(feature = "ws")]
 pub use self::transports::{NotificationStream, WebSocketTransport};
