@@ -1,12 +1,12 @@
 #[cfg(feature = "http-reqwest")]
-mod http;
+mod http_reqwest;
 #[cfg(feature = "http-surf")]
 mod http_surf;
 #[cfg(feature = "ws")]
 mod ws;
 
 #[cfg(feature = "http-reqwest")]
-pub use self::http::*;
+pub use self::http_reqwest::*;
 #[cfg(feature = "http-surf")]
 pub use self::http_surf::*;
 #[cfg(feature = "ws")]
