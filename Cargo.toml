@@ -23,7 +23,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
 
-# HTTP
+# HTTP (reqwest)
 reqwest = { version = "0.10", features = ["json"], optional = true }
 
 # HTTP (async-std)
@@ -38,3 +38,18 @@ tokio = { version = "0.2.0", features = ["macros"], optional = true }
 [dev-dependencies]
 env_logger = "0.8.2"
 async-std = { version = "1.8.0", features = ["attributes"] }
+
+[[example]]
+name = "http_reqwest"
+path = "examples/http_reqwest.rs"
+required-features = ["http-reqwest"]
+
+[[example]]
+name = "http_surf"
+path = "examples/http_surf.rs"
+required-features = ["http-surf"]
+
+[[example]]
+name = "ws"
+path = "examples/ws.rs"
+required-features = ["ws"]
