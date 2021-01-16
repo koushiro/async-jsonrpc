@@ -36,22 +36,22 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --default-features --features 'http-rt-tokio,ws-rt-tokio' --all-targets -- -D warnings
+          args: --no-default-features --features 'http-rt-tokio,ws-rt-tokio' --all-targets -- -D warnings
 
       - name: Code Lint With `async-std` Runtime
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --default-features --features 'http-rt-async-std,ws-rt-async-std' --all-targets -- -D warnings
+          args: --no-default-features --features 'http-rt-async-std,ws-rt-async-std' --all-targets -- -D warnings
 
       - name: Test With `tokio` Runtime
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --default-features --features 'http-rt-tokio,ws-rt-tokio'
+          args: --no-default-features --features 'http-rt-tokio,ws-rt-tokio'
 
       - name: Test With `async-std` Runtime
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --default-features --features 'http-rt-async-std,ws-rt-async-std'
+          args: --no-default-features --features 'http-rt-async-std,ws-rt-async-std'
