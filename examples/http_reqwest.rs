@@ -1,3 +1,4 @@
+/*
 use async_jsonrpc_client::{HttpReqwestTransport, Params, Transport, Value};
 
 #[tokio::main]
@@ -22,3 +23,6 @@ async fn main() {
         .unwrap();
     println!("LogList: {:?}", log_list);
 }
+*/
+
+fn main() {}
