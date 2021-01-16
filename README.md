@@ -5,14 +5,14 @@
 [![docs-svg]][docs-url]
 [![deps-svg]][deps-url]
 
-[ga-svg]: https://github.com/koushiro/async-jsonrpc-client-rs/workflows/build/badge.svg
-[ga-url]: https://github.com/koushiro/async-jsonrpc-client-rs/actions
+[ga-svg]: https://github.com/koushiro/async-jsonrpc-client/workflows/build/badge.svg
+[ga-url]: https://github.com/koushiro/async-jsonrpc-client/actions
 [crates-svg]: https://img.shields.io/crates/v/async-jsonrpc-client
 [crates-url]: https://crates.io/crates/async-jsonrpc-client
 [docs-svg]: https://docs.rs/async-jsonrpc-client/badge.svg
 [docs-url]: https://docs.rs/async-jsonrpc-client
-[deps-svg]: https://deps.rs/repo/github/koushiro/async-jsonrpc-client-rs/status.svg
-[deps-url]: https://deps.rs/repo/github/koushiro/async-jsonrpc-client-rs
+[deps-svg]: https://deps.rs/repo/github/koushiro/async-jsonrpc-client/status.svg
+[deps-url]: https://deps.rs/repo/github/koushiro/async-jsonrpc-client
 
 An asynchronous JSON-RPC client library, written in Rust, which supports HTTP and WebSocket.
 
