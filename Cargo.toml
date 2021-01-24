@@ -21,8 +21,10 @@ ws-rt-async-std = ["async-std", "async-tungstenite/async-std-runtime"]
 
 [dependencies]
 async-trait = "0.1"
+base64 = "0.13"
 futures = "0.3"
 log = "0.4"
+http = "0.2"
 jsonrpc-types = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -47,13 +49,18 @@ async-std = { version = "1.9", features = ["attributes"] }
 tokio = { version = "1.0", features = ["macros"] }
 
 [[example]]
-name = "http-reqwest"
-path = "examples/http_reqwest.rs"
+name = "http-tokio"
+path = "examples/http_tokio.rs"
 required-features = ["http-rt-tokio"]
 
 [[example]]
-name = "http-surf"
-path = "examples/http_surf.rs"
+name = "http-tokio-v1"
+path = "examples/http_tokio_v1.rs"
+required-features = ["http-rt-tokio"]
+
+[[example]]
+name = "http-async-std"
+path = "examples/http_async_std.rs"
 required-features = ["http-rt-async-std"]
 
 [[example]]
