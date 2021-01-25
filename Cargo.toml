@@ -45,6 +45,7 @@ tokio = { version = "1.0", optional = true }
 [dev-dependencies]
 env_logger = "0.8"
 async-std = { version = "1.9", features = ["attributes"] }
+hyper = { version = "0.14", features = ["server"] }
 tokio = { version = "1.0", features = ["macros"] }
 
 [[example]]
