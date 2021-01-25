@@ -11,20 +11,19 @@ description = "An asynchronous JSON-RPC client library, which supports HTTP and 
 keywords = ["async", "jsonrpc", "client"]
 
 [features]
-default = ["http-rt-tokio", "ws-rt-tokio"]
+default = ["http-tokio", "ws-tokio"]
 # HTTP
-http-rt-tokio = ["tokio", "reqwest"]
-http-rt-async-std = ["async-std", "anyhow", "surf"]
+http-tokio = ["tokio", "reqwest"]
+http-async-std = ["async-std", "anyhow", "surf"]
 # WebSocket
-ws-rt-tokio = ["tokio", "async-tungstenite/tokio-runtime"]
-ws-rt-async-std = ["async-std", "async-tungstenite/async-std-runtime"]
+ws-tokio = ["tokio", "async-tungstenite/tokio-runtime"]
+ws-async-std = ["async-std", "async-tungstenite/async-std-runtime"]
 
 [dependencies]
 async-trait = "0.1"
 base64 = "0.13"
 futures = "0.3"
 log = "0.4"
-http = "0.2"
 jsonrpc-types = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -51,24 +50,24 @@ tokio = { version = "1.0", features = ["macros"] }
 [[example]]
 name = "http-tokio"
 path = "examples/http_tokio.rs"
-required-features = ["http-rt-tokio"]
+required-features = ["http-tokio"]
 
 [[example]]
 name = "http-tokio-v1"
 path = "examples/http_tokio_v1.rs"
-required-features = ["http-rt-tokio"]
+required-features = ["http-tokio"]
 
 [[example]]
 name = "http-async-std"
 path = "examples/http_async_std.rs"
-required-features = ["http-rt-async-std"]
+required-features = ["http-async-std"]
 
 [[example]]
 name = "ws-tokio"
 path = "examples/ws_tokio.rs"
-required-features = ["ws-rt-tokio"]
+required-features = ["ws-tokio"]
 
 [[example]]
 name = "ws-async-std"
 path = "examples/ws_async_std.rs"
-required-features = ["ws-rt-async-std"]
+required-features = ["ws-async-std"]

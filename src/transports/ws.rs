@@ -1,52 +1,56 @@
-use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
-
-use async_tungstenite::tokio::connect_async;
-use async_tungstenite::tungstenite::handshake::client::Request as HandShakeRequest;
-use async_tungstenite::tungstenite::http::header;
-use async_tungstenite::tungstenite::protocol::Message;
-use futures::channel::{mpsc, oneshot};
-use futures::future;
-use futures::stream::StreamExt;
-use parking_lot::Mutex;
-use serde::de::DeserializeOwned;
-use tokio::task;
-
-use crate::errors::Result;
-use crate::transports::{BatchTransport, NotificationStream, PubsubTransport, Transport};
-use crate::types::{
-    Call, MethodCall, Notification, Params, Request, RequestId, Response, SubscriptionId, Value,
-    Version,
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, atomic::{AtomicU64, Ordering}},
 };
 
+use async_tungstenite::{
+    tokio::connect_async,
+    tungstenite::{
+        handshake::client::Request as HandShakeRequest, http::header, protocol::Message,
+    },
+};
+use futures::{
+    channel::{mpsc, oneshot},
+    future,
+    stream::StreamExt,
+};
+use jsonrpc_types::*;
+use parking_lot::Mutex;
+use serde::de::DeserializeOwned;
+
+use crate::{error::Result, transports::Transport};
+
 type Pending = oneshot::Sender<Result<Response>>;
-type Pendings = Arc<Mutex<BTreeMap<RequestId, Pending>>>;
-type Subscription = mpsc::UnboundedSender<Value>;
-type Subscriptions = Arc<Mutex<BTreeMap<SubscriptionId, Subscription>>>;
+type Pendings = Arc<Mutex<BTreeMap<Id, Pending>>>;
+type Subscription = mpsc::UnboundedSender<Notification>;
+type Subscriptions = Arc<Mutex<BTreeMap<Id, Subscription>>>;
 
 type WebSocketSender = mpsc::UnboundedSender<Message>;
 type WebSocketReceiver = mpsc::UnboundedReceiver<Message>;
 
+enum TransportMessage {
+    Request {
+        id: Id,
+        request: String,
+        sender: Pending,
+    },
+    Subscribe {
+        id: Id,
+        sink: Subscription,
+    },
+    Unsubscribe {
+        id: Id,
+    }
+}
+
 ///
 pub struct WebSocketTransport {
-    id: Arc<AtomicUsize>,
+    id: Arc<AtomicU64>,
     url: String,
-    bearer_auth_token: Option<String>,
     pendings: Pendings,
     subscriptions: Subscriptions,
     sender: WebSocketSender,
-    _handle: task::JoinHandle<()>,
-}
-
-impl Clone for WebSocketTransport {
-    fn clone(&self) -> Self {
-        if let Some(token) = &self.bearer_auth_token {
-            Self::new_with_bearer_auth(&self.url, token)
-        } else {
-            Self::new(&self.url)
-        }
-    }
+    _handle: tokio::task::JoinHandle<()>,
 }
 
 impl WebSocketTransport {
@@ -61,7 +65,7 @@ impl WebSocketTransport {
         let subscriptions = Arc::new(Mutex::new(BTreeMap::new()));
         let (writer_tx, writer_rx) = mpsc::unbounded();
 
-        let handle = task::spawn(ws_task(
+        let handle = tokio::task::spawn(ws_task(
             handshake_request,
             pending.clone(),
             subscriptions.clone(),
@@ -70,9 +74,8 @@ impl WebSocketTransport {
         ));
 
         Self {
-            id: Arc::new(AtomicUsize::new(1)),
+            id: Arc::new(AtomicU64::new(1)),
             url,
-            bearer_auth_token: None,
             pendings: pending,
             subscriptions,
             sender: writer_tx,
@@ -95,7 +98,7 @@ impl WebSocketTransport {
         let subscriptions = Arc::new(Mutex::new(BTreeMap::new()));
         let (writer_tx, writer_rx) = mpsc::unbounded();
 
-        let handle = task::spawn(ws_task(
+        let handle = tokio::task::spawn(ws_task(
             handshake_request,
             pending.clone(),
             subscriptions.clone(),
@@ -104,9 +107,8 @@ impl WebSocketTransport {
         ));
 
         Self {
-            id: Arc::new(AtomicUsize::new(1)),
+            id: Arc::new(AtomicU64::new(1)),
             url,
-            bearer_auth_token: Some(token),
             pendings: pending,
             subscriptions,
             sender: writer_tx,
@@ -114,10 +116,9 @@ impl WebSocketTransport {
         }
     }
 
-    async fn send_request(&self, id: RequestId, request: &Request) -> Result<Response> {
-        let request = serde_json::to_string(request)?;
-        debug!("Calling: {}", request);
-
+    async fn send_request(&self, request: Request) -> Result<Response> {
+        let request = serde_json::to_string(&request)?;
+        log::debug!("Calling: {}", request);
         let (tx, rx) = oneshot::channel();
         self.pendings.lock().insert(id, tx);
         self.sender
@@ -138,7 +139,7 @@ async fn ws_task(
     let (ws_stream, _) = connect_async(handshake_request)
         .await
         .expect("Handshake request is valid, but failed to connect");
-    info!("WebSocket handshake has been successfully completed");
+    log::info!("WebSocket handshake has been successfully completed");
     let (sink, stream) = ws_stream.split();
 
     // receive request from WebSocketSender,
@@ -148,7 +149,7 @@ async fn ws_task(
     let read_from_ws = stream.for_each(|msg| async {
         match msg {
             Ok(msg) => handle_incoming_msg(msg, pendings.clone(), sub.clone(), tx.clone()),
-            Err(err) => error!("WebSocket stream read error: {}", err),
+            Err(err) => log::error!("WebSocket stream read error: {}", err),
         }
     });
 
@@ -167,18 +168,18 @@ fn handle_incoming_msg(
             handle_subscription(subscriptions, &msg);
             handle_pending_response(pendings, &msg);
         }
-        Message::Binary(msg) => warn!("Receive `Binary` Message: {:?}", msg),
+        Message::Binary(msg) => log::warn!("Receive `Binary` Message: {:?}", msg),
         Message::Close(msg) => {
-            warn!("Receive `Close` Message: {:?}", msg);
+            log::warn!("Receive `Close` Message: {:?}", msg);
             tx.unbounded_send(Message::Close(msg))
                 .expect("Sending `Close` Message should be successful")
         }
         Message::Ping(msg) => {
-            warn!("Receive `Ping` Message: {:?}", msg);
+            log::warn!("Receive `Ping` Message: {:?}", msg);
             tx.unbounded_send(Message::Pong(msg))
                 .expect("Sending `Pong` Message should be successful")
         }
-        Message::Pong(msg) => warn!("Receive `Pong` Message: {:?}", msg),
+        Message::Pong(msg) => log::warn!("Receive `Pong` Message: {:?}", msg),
     }
 }
 
@@ -194,13 +195,13 @@ fn handle_subscription(subscriptions: Subscriptions, msg: &str) {
                         .unbounded_send(result.clone())
                         .expect("Sending subscription result to the user should be successful");
                 } else {
-                    warn!("Got notification for unknown subscription (id: {})", id);
+                    log::warn!("Got notification for unknown subscription (id: {})", id);
                 }
             } else {
-                error!("Got unsupported notification (id: {:?})", id);
+                log::error!("Got unsupported notification (id: {:?})", id);
             }
         } else {
-            error!(
+            log::error!(
                 "The Notification Params is not JSON array type: {}",
                 serde_json::to_string(&notification.params)
                     .expect("Serialize `Params` never fails")
@@ -218,32 +219,29 @@ fn handle_pending_response(pendings: Pendings, msg: &str) {
     };
     if let Some(request) = pendings.lock().remove(&id) {
         if let Err(err) = request.send(response) {
-            error!("Sending a response to deallocated channel: {:?}", err);
+            log::error!("Sending a response to deallocated channel: {:?}", err);
         }
     }
 }
 
 #[async_trait::async_trait]
 impl Transport for WebSocketTransport {
-    fn prepare<M: Into<String>>(&self, method: M, params: Params) -> (RequestId, Call) {
+    fn prepare<M: Into<String>>(&self, method: M, params: Option<Params>) -> Call {
         let id = self.id.fetch_add(1, Ordering::AcqRel);
-        let call = Call::MethodCall(MethodCall {
-            jsonrpc: Some(Version::V2),
-            id,
+        Call::MethodCall(MethodCall {
+            jsonrpc: Some(Version::V2_0),
             method: method.into(),
             params,
-        });
-        (id, call)
+            id: Id::Num(id),
+        })
     }
 
-    async fn execute(&self, id: RequestId, request: &Request) -> Result<Response> {
-        self.send_request(id, request).await
+    async fn execute(&self, request: Request) -> Result<Response> {
+        self.send_request(request).await
     }
 }
 
-#[async_trait::async_trait]
-impl BatchTransport for WebSocketTransport {}
-
+/*
 impl PubsubTransport for WebSocketTransport {
     fn subscribe<T>(&self, id: SubscriptionId) -> NotificationStream<T>
     where
@@ -251,7 +249,7 @@ impl PubsubTransport for WebSocketTransport {
     {
         let (tx, rx) = mpsc::unbounded();
         if self.subscriptions.lock().insert(id, tx).is_some() {
-            warn!("Replacing already-registered subscription with id {:?}", id);
+            log::warn!("Replacing already-registered subscription with id {:?}", id);
         }
         Box::pin(
             rx.map(|value| serde_json::from_value(value).expect("Deserialize `Value` never fails")),
@@ -262,3 +260,4 @@ impl PubsubTransport for WebSocketTransport {
         self.subscriptions.lock().remove(&id);
     }
 }
+*/

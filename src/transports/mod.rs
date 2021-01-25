@@ -3,14 +3,19 @@
 // #[cfg(feature = "http-rt-async-std")]
 // pub use self::http_async_std::*;
 
-#[cfg(feature = "http-rt-tokio")]
-mod http_tokio;
-#[cfg(feature = "http-rt-tokio")]
-pub use self::http_tokio::*;
+// #[cfg(feature = "http-rt-tokio")]
+// mod http_tokio;
+// #[cfg(feature = "http-rt-tokio")]
+// pub use self::http_tokio::*;
 
-// #[cfg(any(feature = "ws-rt-async-std", feature = "ws-rt-tokio"))]
+#[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
+mod http;
+#[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
+pub use self::http::{HttpTransport, HttpTransportBuilder};
+
+// #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
 // mod ws;
-// #[cfg(any(feature = "ws-rt-async-std", feature = "ws-rt-tokio"))]
+// #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
 // pub use self::ws::*;
 
 use jsonrpc_types::*;
@@ -87,6 +92,9 @@ pub trait BatchTransport: Transport {
         Ok(response)
     }
 }
+
+#[async_trait::async_trait]
+impl<T> BatchTransport for T where T: Transport {}
 
 /*
 use serde::de::DeserializeOwned;

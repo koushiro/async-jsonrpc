@@ -8,8 +8,8 @@ use std::{
     time::Duration,
 };
 
-use http::header::{self, HeaderMap, HeaderName, HeaderValue};
 use jsonrpc_types::*;
+use reqwest::header::{self, HeaderMap, HeaderName, HeaderValue};
 
 use crate::{
     error::Result,
@@ -218,8 +218,7 @@ impl HttpTransport {
     }
 
     async fn send_request(&self, request: Request) -> Result<Response> {
-        let request = serde_json::to_string(&request)?;
-        let builder = self.client.post(&self.url).body(request);
+        let builder = self.client.post(&self.url).json(&request);
         let response = builder.send().await?;
         Ok(response.json().await?)
     }
@@ -241,6 +240,3 @@ impl Transport for HttpTransport {
         self.send_request(request).await
     }
 }
-
-#[async_trait::async_trait]
-impl BatchTransport for HttpTransport {}

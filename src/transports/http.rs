@@ -1,5 +1,6 @@
 use std::{
     fmt,
+    io::Write,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -8,16 +9,14 @@ use std::{
 };
 
 use jsonrpc_types::*;
-use surf::http::headers::{self, HeaderName, HeaderValue, HeaderValues, Headers};
+use reqwest::header::{self, HeaderMap, HeaderName, HeaderValue};
 
-use crate::{
-    error::Result,
-    transports::{BatchTransport, Transport},
-};
+use crate::{error::Result, transports::Transport};
 
 /// A `HttpTransportBuilder` can be used to create a `HttpTransport` with  custom configuration.
+#[derive(Debug)]
 pub struct HttpTransportBuilder {
-    headers: Vec<(HeaderName, HeaderValues)>,
+    headers: HeaderMap,
     timeout: Option<Duration>,
     connect_timeout: Option<Duration>,
     pool_idle_timeout: Option<Duration>,
@@ -39,7 +38,7 @@ impl HttpTransportBuilder {
     /// This is the same as `HttpTransport::builder()`.
     pub fn new() -> Self {
         Self {
-            headers: Headers::,
+            headers: HeaderMap::new(),
             timeout: None,
             connect_timeout: None,
             pool_idle_timeout: Some(Duration::from_secs(90)),
@@ -52,7 +51,7 @@ impl HttpTransportBuilder {
 
     /// Returns a `HttpTransport` that uses this `HttpTransportBuilder` configuration.
     pub fn build<U: Into<String>>(self, url: U) -> Result<HttpTransport> {
-        let builder = surf::Client::new()
+        let builder = reqwest::Client::builder()
             .default_headers(self.headers)
             .pool_idle_timeout(self.pool_idle_timeout)
             .pool_max_idle_per_host(self.pool_max_idle_per_host)
@@ -72,7 +71,7 @@ impl HttpTransportBuilder {
         let client = builder.build()?;
         Ok(HttpTransport {
             url: url.into(),
-            id: Arc::new(AtomicU64::new(0)),
+            id: Arc::new(AtomicU64::new(1)),
             client,
         })
     }
@@ -81,9 +80,9 @@ impl HttpTransportBuilder {
 
     /// Enable HTTP basic authentication.
     pub fn basic_auth<U, P>(self, username: U, password: Option<P>) -> Self
-        where
-            U: fmt::Display,
-            P: fmt::Display,
+    where
+        U: fmt::Display,
+        P: fmt::Display,
     {
         let mut basic_auth = b"Basic ".to_vec();
         {
@@ -95,17 +94,17 @@ impl HttpTransportBuilder {
             }
         }
         let value = HeaderValue::from_bytes(&basic_auth).expect("HeaderValue::from_bytes()");
-        self.header(headers::AUTHORIZATION, value)
+        self.header(header::AUTHORIZATION, value)
     }
 
     /// Enable HTTP bearer authentication.
     pub fn bearer_auth<T>(self, token: T) -> Self
-        where
-            T: fmt::Display,
+    where
+        T: fmt::Display,
     {
         let bearer_auth = format!("Bearer {}", token);
         let value = HeaderValue::from_str(&bearer_auth).expect("HeaderValue::from_str()");
-        self.header(headers::AUTHORIZATION, value)
+        self.header(header::AUTHORIZATION, value)
     }
 
     /// Adds a `Header` for every request.
@@ -198,7 +197,7 @@ impl HttpTransportBuilder {
 pub struct HttpTransport {
     url: String,
     id: Arc<AtomicU64>,
-    client: surf::Client,
+    client: reqwest::Client,
 }
 
 impl HttpTransport {
@@ -217,12 +216,9 @@ impl HttpTransport {
     }
 
     async fn send_request(&self, request: Request) -> Result<Response> {
-        let request = serde_json::to_string(&request)?;
-        let builder = surf::post(&self.url)
-            .content_type(surf::http::mime::JSON)
-            .body(request);
-        let mut response = builder.send().await?;
-        Ok(response.body_json().await?)
+        let builder = self.client.post(&self.url).json(&request);
+        let response = builder.send().await?;
+        Ok(response.json().await?)
     }
 }
 

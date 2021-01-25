@@ -8,7 +8,7 @@ mod transports;
 pub use self::error::RpcError;
 pub use self::transports::{BatchTransport, Transport};
 
-#[cfg(any(feature = "http-rt-async-std", feature = "http-rt-tokio"))]
+#[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
 pub use self::transports::{HttpTransport, HttpTransportBuilder};
 // #[cfg(any(feature = "ws-rt-async-std", feature = "ws-rt-tokio"))]
 // pub use self::transports::{NotificationStream, WebSocketTransport};

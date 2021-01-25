@@ -8,16 +8,16 @@ pub enum RpcError {
     /// Json serialization/deserialization error.
     #[error(transparent)]
     Json(#[from] serde_json::Error),
-    #[cfg(feature = "http-rt-tokio")]
+    #[cfg(feature = "http-tokio")]
     /// HTTP error.
     #[error(transparent)]
     Http(#[from] reqwest::Error),
-    #[cfg(feature = "http-rt-async-std")]
+    #[cfg(feature = "http-async-std")]
     /// HTTP error.
     #[error(transparent)]
     Http(anyhow::Error),
     /// WebSocket error.
-    #[cfg(any(feature = "ws-rt-tokio", feature = "ws-rt-async-std"))]
+    #[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
     #[error(transparent)]
     WebSocket(#[from] async_tungstenite::tungstenite::Error),
     /// Rpc request error, return failure response.
