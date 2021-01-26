@@ -1,6 +1,9 @@
 use std::{
     collections::BTreeMap,
-    sync::{Arc, atomic::{AtomicU64, Ordering}},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
 };
 
 use async_tungstenite::{
@@ -25,8 +28,8 @@ type Pendings = Arc<Mutex<BTreeMap<Id, Pending>>>;
 type Subscription = mpsc::UnboundedSender<Notification>;
 type Subscriptions = Arc<Mutex<BTreeMap<Id, Subscription>>>;
 
-type WebSocketSender = mpsc::UnboundedSender<Message>;
-type WebSocketReceiver = mpsc::UnboundedReceiver<Message>;
+type WsMsgSender = mpsc::UnboundedSender<Message>;
+type WsMsgReceiver = mpsc::UnboundedReceiver<Message>;
 
 enum TransportMessage {
     Request {
@@ -40,11 +43,11 @@ enum TransportMessage {
     },
     Unsubscribe {
         id: Id,
-    }
+    },
 }
 
 ///
-pub struct WebSocketTransport {
+pub struct WsTransport {
     id: Arc<AtomicU64>,
     url: String,
     pendings: Pendings,
@@ -53,7 +56,7 @@ pub struct WebSocketTransport {
     _handle: tokio::task::JoinHandle<()>,
 }
 
-impl WebSocketTransport {
+impl WsTransport {
     /// Create a new WebSocket transport with given `url`.
     pub fn new<U: Into<String>>(url: U) -> Self {
         let url = url.into();
@@ -225,7 +228,7 @@ fn handle_pending_response(pendings: Pendings, msg: &str) {
 }
 
 #[async_trait::async_trait]
-impl Transport for WebSocketTransport {
+impl Transport for WsTransport {
     fn prepare<M: Into<String>>(&self, method: M, params: Option<Params>) -> Call {
         let id = self.id.fetch_add(1, Ordering::AcqRel);
         Call::MethodCall(MethodCall {
@@ -242,7 +245,7 @@ impl Transport for WebSocketTransport {
 }
 
 /*
-impl PubsubTransport for WebSocketTransport {
+impl PubsubTransport for WsTransport {
     fn subscribe<T>(&self, id: SubscriptionId) -> NotificationStream<T>
     where
         T: DeserializeOwned,

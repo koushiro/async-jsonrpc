@@ -268,27 +268,43 @@ mod tests {
         assert_eq!(bearer_auth, HeaderValue::from_static("Bearer Hold my bear"));
     }
 
-    use hyper::{
-        body::{Body, HttpBody as _},
-        service::{make_service_fn, service_fn},
-        Method, Request as HttpRequest, Response as HttpResponse,
-    };
-
     async fn server_v2(req: HttpRequest<Body>) -> hyper::Result<HttpResponse<Body>> {
         assert_eq!(req.method(), &Method::POST);
-        assert_eq!(req.uri().path(), "/");
+
+        let path = req.uri().path().to_string();
         let mut content = vec![];
         let mut body = req.into_body();
         while let Some(Ok(chunk)) = body.data().await {
             content.extend(&*chunk);
         }
-
-        let expected = r#"{"jsonrpc":"2.0","method":"foo","params":[],"id":1}"#;
-        assert_eq!(std::str::from_utf8(&content), Ok(expected));
-
-        let response = r#"{"jsonrpc":"2.0","id":1,"result":"x"}"#;
-        Ok(HttpResponse::new(response.into()))
+        match path.as_str() {
+            "/v2_no_params" => {
+                let expected = r#"{"jsonrpc":"2.0","method":"foo","id":1}"#;
+                assert_eq!(std::str::from_utf8(&content), Ok(expected));
+                let response = r#"{"jsonrpc":"2.0","id":1,"result":"x"}"#;
+                Ok(HttpResponse::new(response.into()))
+            }
+            "/v2_params" => {
+                let expected = r#"{"jsonrpc":"2.0","method":"bar","params":[],"id":1}"#;
+                assert_eq!(std::str::from_utf8(&content), Ok(expected));
+                let response = r#"{"jsonrpc":"2.0","id":1,"result":"y"}"#;
+                Ok(HttpResponse::new(response.into()))
+            }
+            "/v2_batch" => {
+                let expected = r#"[{"jsonrpc":"2.0","method":"foo","id":1},{"jsonrpc":"2.0","method":"bar","params":[],"id":2}]"#;
+                assert_eq!(std::str::from_utf8(&content), Ok(expected));
+                let response = r#"[{"jsonrpc":"2.0","id":1,"result":"x"},{"jsonrpc":"2.0","id":2,"result":"y"}]"#;
+                Ok(HttpResponse::new(response.into()))
+            }
+            _ => unreachable!(),
+        }
     }
+
+    use hyper::{
+        body::{Body, HttpBody as _},
+        service::{make_service_fn, service_fn},
+        Method, Request as HttpRequest, Response as HttpResponse,
+    };
 
     #[tokio::test]
     async fn make_jsonrpc_v2_request() {
@@ -298,19 +314,59 @@ mod tests {
         let server = hyper::Server::bind(&addr.parse().unwrap()).serve(service);
         tokio::spawn(server);
 
-        let client = HttpTransport::new(format!("http://{}", addr));
-        let response = client
-            .send("foo", Some(Params::Array(vec![])))
-            .await
-            .unwrap();
-        assert_eq!(
-            response,
-            Success {
-                jsonrpc: Some(Version::V2_0),
-                result: Value::String("x".to_string()),
-                id: Id::Num(1),
-            }
-            .into()
-        );
+        {
+            let client = HttpTransport::new(format!("http://{}/v2_no_params", addr));
+            let response = client.send("foo", None).await.unwrap();
+            assert_eq!(
+                response,
+                Success {
+                    jsonrpc: Some(Version::V2_0),
+                    result: Value::String("x".to_string()),
+                    id: Id::Num(1),
+                }
+                .into()
+            );
+        }
+
+        {
+            let client = HttpTransport::new(format!("http://{}/v2_params", addr));
+            let response = client
+                .send("bar", Some(Params::Array(vec![])))
+                .await
+                .unwrap();
+            assert_eq!(
+                response,
+                Success {
+                    jsonrpc: Some(Version::V2_0),
+                    result: Value::String("y".to_string()),
+                    id: Id::Num(1),
+                }
+                .into()
+            );
+        }
+
+        {
+            use crate::transports::BatchTransport;
+            let client = HttpTransport::new(format!("http://{}/v2_batch", addr));
+            let response = client
+                .send_batch(vec![("foo", None), ("bar", Some(Params::Array(vec![])))])
+                .await
+                .unwrap();
+            assert_eq!(
+                response,
+                Response::Batch(vec![
+                    Output::Success(Success {
+                        jsonrpc: Some(Version::V2_0),
+                        result: Value::String("x".to_string()),
+                        id: Id::Num(1),
+                    }),
+                    Output::Success(Success {
+                        jsonrpc: Some(Version::V2_0),
+                        result: Value::String("y".to_string()),
+                        id: Id::Num(2),
+                    })
+                ])
+            );
+        }
     }
 }
