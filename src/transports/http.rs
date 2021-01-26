@@ -11,7 +11,10 @@ use std::{
 use jsonrpc_types::*;
 use reqwest::header::{self, HeaderMap, HeaderName, HeaderValue};
 
-use crate::{error::Result, transports::Transport};
+use crate::{
+    error::Result,
+    transports::{BatchTransport, Transport},
+};
 
 /// A `HttpTransportBuilder` can be used to create a `HttpTransport` with  custom configuration.
 #[derive(Debug)]
@@ -239,6 +242,9 @@ impl Transport for HttpTransport {
     }
 }
 
+#[async_trait::async_trait]
+impl BatchTransport for HttpTransport {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -346,7 +352,6 @@ mod tests {
         }
 
         {
-            use crate::transports::BatchTransport;
             let client = HttpTransport::new(format!("http://{}/v2_batch", addr));
             let response = client
                 .send_batch(vec![("foo", None), ("bar", Some(Params::Array(vec![])))])

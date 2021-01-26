@@ -14,8 +14,10 @@ mod http;
 //#[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
 pub use self::http::{HttpTransport, HttpTransportBuilder};
 
+// #[cfg(feature = "ws-tokio")]
 // #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
 // mod ws;
+// #[cfg(feature = "ws-tokio")]
 // #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
 // pub use self::ws::*;
 
@@ -56,24 +58,6 @@ pub trait Transport {
 /// A transport implementation supporting batch requests
 #[async_trait::async_trait]
 pub trait BatchTransport: Transport {
-    /// Execute a batch of prepared RPC calls.
-    async fn execute_batch<I>(&self, requests: I) -> Result<Response>
-    where
-        I: IntoIterator<Item = MethodCall> + Send,
-        I::IntoIter: Send,
-    {
-        let calls = requests
-            .into_iter()
-            .map(Call::MethodCall)
-            .collect::<Vec<_>>();
-        let request = Request::Batch(calls);
-        log::debug!(
-            "Request: {}",
-            serde_json::to_string(&request).expect("Serialize `Request` never fails")
-        );
-        self.execute(request).await
-    }
-
     /// Send a batch of RPC calls with the given method and parameters.
     async fn send_batch<I, M>(&self, batch: I) -> Result<Response>
     where
@@ -81,21 +65,25 @@ pub trait BatchTransport: Transport {
         I::IntoIter: Send,
         M: Into<String>,
     {
-        let requests = batch
+        let calls = batch
             .into_iter()
-            .map(|(method, params)| self.prepare(method, params));
+            .map(|(method, params)| self.prepare(method, params))
+            .map(Call::MethodCall)
+            .collect::<Vec<_>>();
+        let request = Request::Batch(calls);
+        log::debug!(
+            "Request: {}",
+            serde_json::to_string(&request).expect("Serialize `Request` shouldn't be failed")
+        );
 
-        let response = self.execute_batch(requests).await?;
+        let response = self.execute(request).await?;
         log::debug!(
             "Response: {}",
-            serde_json::to_string(&response).expect("Serialize `Response` never fails")
+            serde_json::to_string(&response).expect("Serialize `Response` shouldn't be failed")
         );
         Ok(response)
     }
 }
-
-#[async_trait::async_trait]
-impl<T> BatchTransport for T where T: Transport {}
 
 /*
 use serde::de::DeserializeOwned;
