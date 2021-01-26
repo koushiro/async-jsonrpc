@@ -3,14 +3,15 @@
 // #[cfg(feature = "http-rt-async-std")]
 // pub use self::http_async_std::*;
 
-// #[cfg(feature = "http-rt-tokio")]
 // mod http_tokio;
 // #[cfg(feature = "http-rt-tokio")]
 // pub use self::http_tokio::*;
 
-#[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
+#[cfg(feature = "http-tokio")]
+//#[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
 mod http;
-#[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
+#[cfg(feature = "http-tokio")]
+//#[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
 pub use self::http::{HttpTransport, HttpTransportBuilder};
 
 // #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
@@ -63,7 +64,7 @@ pub trait BatchTransport: Transport {
     {
         let calls = requests
             .into_iter()
-            .map(|call| Call::MethodCall(call))
+            .map(Call::MethodCall)
             .collect::<Vec<_>>();
         let request = Request::Batch(calls);
         log::debug!(

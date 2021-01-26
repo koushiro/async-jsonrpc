@@ -24,7 +24,7 @@ async-trait = "0.1"
 base64 = "0.13"
 futures = "0.3"
 log = "0.4"
-jsonrpc-types = "0.1"
+jsonrpc-types = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
@@ -40,7 +40,7 @@ parking_lot = { version = "0.11", optional = true }
 
 # Runtime
 async-std = { version = "1.9", optional = true }
-tokio = { version = "1.0", optional = true }
+tokio = { version = "1.1", optional = true }
 
 [dev-dependencies]
 env_logger = "0.8"

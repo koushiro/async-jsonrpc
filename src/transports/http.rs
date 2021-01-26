@@ -305,7 +305,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             response,
-            SuccessResponse {
+            Success {
                 jsonrpc: Some(Version::V2_0),
                 result: Value::String("x".to_string()),
                 id: Id::Num(1),
