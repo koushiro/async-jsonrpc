@@ -25,10 +25,11 @@ use futures::{
     stream::{SplitSink, SplitStream, StreamExt},
 };
 use jsonrpc_types::*;
+use serde::de::DeserializeOwned;
 
 use crate::{
     error::{Result, RpcClientError},
-    transports::{BatchTransport, PubsubTransport, Transport},
+    transports::{BatchTransport, NotificationStream, PubsubTransport, Transport},
 };
 
 /// A `WsTransportBuilder` can be used to create a `HttpTransport` with  custom configuration.
@@ -126,7 +127,7 @@ impl WsTransportBuilder {
 }
 
 type Pending = oneshot::Sender<Result<Response>>;
-type Subscription = mpsc::UnboundedSender<Notification>;
+type Subscription = mpsc::UnboundedSender<SubscriptionNotification>;
 
 struct WsTask {
     pendings: BTreeMap<Id, Pending>,
@@ -236,28 +237,14 @@ async fn handle_message(
 }
 
 fn handle_subscription(subscriptions: &BTreeMap<Id, Subscription>, msg: &str) {
-    if let Ok(notification) = serde_json::from_str::<Notification>(msg) {
-        if let Some(Params::Map(params)) = &notification.params {
-            let id = params.get("subscription");
-            if let Some(id) = id {
-                let id = serde_json::from_value::<Id>(id.clone())
-                    .expect("Deserialize `Id` shouldn't be failed");
-                if let Some(stream) = subscriptions.get(&id) {
-                    stream
-                        .unbounded_send(notification)
-                        .expect("Sending subscription result to the user should be successful");
-                } else {
-                    log::warn!("Got notification for unknown subscription (id: {:?})", id);
-                }
-            } else {
-                log::error!("Got unsupported notification (id: {:?})", id);
-            }
+    if let Ok(notification) = serde_json::from_str::<SubscriptionNotification>(msg) {
+        let id = notification.params.subscription.clone();
+        if let Some(stream) = subscriptions.get(&id) {
+            stream
+                .unbounded_send(notification)
+                .expect("Sending subscription result to the user should be successful");
         } else {
-            log::error!(
-                "The Notification Params is not JSON map type: {}",
-                serde_json::to_string(&notification.params)
-                    .expect("Serialize `Params` shouldn't be failed")
-            );
+            log::warn!("Got notification for unknown subscription (id: {:?})", id);
         }
     }
 }
@@ -273,8 +260,6 @@ fn handle_pending_response(pendings: &mut BTreeMap<Id, Pending>, msg: &str) {
         if let Err(err) = request.send(response) {
             log::error!("Sending a response to deallocated channel: {:?}", err);
         }
-    } else {
-        log::warn!("Got response for unknown request (id: {:?})", id);
     }
 }
 
@@ -522,12 +507,10 @@ impl BatchTransport for WsTransport {
 }
 
 impl PubsubTransport for WsTransport {
-    type NotificationStream = mpsc::UnboundedReceiver<Notification>;
-
-    fn subscribe<T>(&self, id: Id) -> Result<Self::NotificationStream> {
+    fn subscribe(&self, id: Id) -> Result<NotificationStream> {
         let (sink, stream) = mpsc::unbounded();
         self.send_msg(TransportMessage::Subscribe { id, sender: sink })?;
-        Ok(stream)
+        Ok(stream.boxed())
     }
 
     fn unsubscribe(&self, id: Id) -> Result<()> {
@@ -556,5 +539,20 @@ mod tests {
             .await
             .unwrap();
         log::info!("Response: {}", response);
+
+        let response = ws.send("chain_subscribeNewHead", None).await.unwrap();
+        let id = match response {
+            Response::Single(Output::Success(Success { result, .. })) => {
+                serde_json::from_value::<Id>(result).unwrap()
+            }
+            _ => panic!("Unknown"),
+        };
+        let mut stream = ws.subscribe(id).unwrap();
+        while let Some(value) = stream.next().await {
+            log::info!(
+                "chain_subscribeNewHead: {}",
+                serde_json::to_string(&value).unwrap()
+            );
+        }
     }
 }
