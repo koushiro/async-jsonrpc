@@ -1,6 +1,5 @@
 use std::{
     fmt,
-    io::Write,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -13,7 +12,7 @@ use reqwest::header::{self, HeaderMap, HeaderName, HeaderValue};
 
 use crate::{
     error::Result,
-    transports::{BatchTransport, Transport},
+    transports::{BatchTransport, MethodCallRequest, Transport},
 };
 
 /// A `HttpTransportBuilder` can be used to create a `HttpTransport` with  custom configuration.
@@ -52,61 +51,34 @@ impl HttpTransportBuilder {
         }
     }
 
-    /// Returns a `HttpTransport` that uses this `HttpTransportBuilder` configuration.
-    pub fn build<U: Into<String>>(self, url: U) -> Result<HttpTransport> {
-        let builder = reqwest::Client::builder()
-            .default_headers(self.headers)
-            .pool_idle_timeout(self.pool_idle_timeout)
-            .pool_max_idle_per_host(self.pool_max_idle_per_host)
-            .tcp_keepalive(self.tcp_keepalive)
-            .tcp_nodelay(self.tcp_nodelay)
-            .https_only(self.https_only);
-        let builder = if let Some(timeout) = self.timeout {
-            builder.timeout(timeout)
-        } else {
-            builder
-        };
-        let builder = if let Some(timeout) = self.connect_timeout {
-            builder.connect_timeout(timeout)
-        } else {
-            builder
-        };
-        let client = builder.build()?;
-        Ok(HttpTransport {
-            url: url.into(),
-            id: Arc::new(AtomicU64::new(1)),
-            client,
-        })
-    }
-
+    // ========================================================================
     // HTTP header options
+    // ========================================================================
 
-    /// Enable HTTP basic authentication.
+    /// Enable basic authentication.
     pub fn basic_auth<U, P>(self, username: U, password: Option<P>) -> Self
     where
         U: fmt::Display,
         P: fmt::Display,
     {
-        let mut basic_auth = b"Basic ".to_vec();
-        {
-            let mut encoder = base64::write::EncoderWriter::new(&mut basic_auth, base64::STANDARD);
-            // The unwraps here are fine because Vec::write* is infallible.
-            write!(encoder, "{}:", username).unwrap();
-            if let Some(password) = password {
-                write!(encoder, "{}", password).unwrap();
-            }
-        }
-        let value = HeaderValue::from_bytes(&basic_auth).expect("HeaderValue::from_bytes()");
+        let mut basic_auth = "Basic ".to_string();
+        let auth = if let Some(password) = password {
+            base64::encode(format!("{}:{}", username, password))
+        } else {
+            base64::encode(format!("{}:", username))
+        };
+        basic_auth.push_str(&auth);
+        let value = HeaderValue::from_str(&basic_auth).expect("basic auth header value");
         self.header(header::AUTHORIZATION, value)
     }
 
-    /// Enable HTTP bearer authentication.
+    /// Enable bearer authentication.
     pub fn bearer_auth<T>(self, token: T) -> Self
     where
         T: fmt::Display,
     {
         let bearer_auth = format!("Bearer {}", token);
-        let value = HeaderValue::from_str(&bearer_auth).expect("HeaderValue::from_str()");
+        let value = HeaderValue::from_str(&bearer_auth).expect("bearer auth header value");
         self.header(header::AUTHORIZATION, value)
     }
 
@@ -118,13 +90,13 @@ impl HttpTransportBuilder {
 
     /// Adds `Header`s for every request.
     pub fn headers(mut self, headers: HeaderMap) -> Self {
-        for (key, value) in headers.iter() {
-            self.headers.insert(key, value.clone());
-        }
+        self.headers.extend(headers);
         self
     }
 
+    // ========================================================================
     // Timeout options
+    // ========================================================================
 
     /// Enables a request timeout.
     ///
@@ -184,7 +156,9 @@ impl HttpTransportBuilder {
         self
     }
 
+    // ========================================================================
     // TLS options
+    // ========================================================================
 
     /// Restrict the Client to be used with HTTPS only requests.
     ///
@@ -192,6 +166,35 @@ impl HttpTransportBuilder {
     pub fn https_only(mut self, enabled: bool) -> Self {
         self.https_only = enabled;
         self
+    }
+
+    // ========================================================================
+
+    /// Returns a `HttpTransport` that uses this `HttpTransportBuilder` configuration.
+    pub fn build<U: Into<String>>(self, url: U) -> Result<HttpTransport> {
+        let builder = reqwest::Client::builder()
+            .default_headers(self.headers)
+            .pool_idle_timeout(self.pool_idle_timeout)
+            .pool_max_idle_per_host(self.pool_max_idle_per_host)
+            .tcp_keepalive(self.tcp_keepalive)
+            .tcp_nodelay(self.tcp_nodelay)
+            .https_only(self.https_only);
+        let builder = if let Some(timeout) = self.timeout {
+            builder.timeout(timeout)
+        } else {
+            builder
+        };
+        let builder = if let Some(timeout) = self.connect_timeout {
+            builder.connect_timeout(timeout)
+        } else {
+            builder
+        };
+        let client = builder.build()?;
+        Ok(HttpTransport {
+            url: url.into(),
+            id: Arc::new(AtomicU64::new(1)),
+            client,
+        })
     }
 }
 
@@ -205,10 +208,8 @@ pub struct HttpTransport {
 
 impl HttpTransport {
     /// Creates a new HTTP transport with given `url`.
-    pub fn new<U: Into<String>>(url: U) -> Self {
-        HttpTransportBuilder::new()
-            .build(url)
-            .expect("Client::new()")
+    pub fn new<U: Into<String>>(url: U) -> Result<Self> {
+        HttpTransportBuilder::new().build(url)
     }
 
     /// Creates a `HttpTransportBuilder` to configure a `HttpTransport`.
@@ -218,7 +219,7 @@ impl HttpTransport {
         HttpTransportBuilder::new()
     }
 
-    async fn send_request(&self, request: Request) -> Result<Response> {
+    async fn send_request(&self, request: MethodCallRequest) -> Result<Response> {
         let builder = self.client.post(&self.url).json(&request);
         let response = builder.send().await?;
         Ok(response.json().await?)
@@ -230,14 +231,14 @@ impl Transport for HttpTransport {
     fn prepare<M: Into<String>>(&self, method: M, params: Option<Params>) -> MethodCall {
         let id = self.id.fetch_add(1, Ordering::AcqRel);
         MethodCall {
-            jsonrpc: Some(Version::V2_0),
+            jsonrpc: Version::V2_0,
             method: method.into(),
             params,
             id: Id::Num(id),
         }
     }
 
-    async fn execute(&self, request: Request) -> Result<Response> {
+    async fn execute(&self, request: MethodCallRequest) -> Result<Response> {
         self.send_request(request).await
     }
 }
@@ -321,12 +322,12 @@ mod tests {
         tokio::spawn(server);
 
         {
-            let client = HttpTransport::new(format!("http://{}/v2_no_params", addr));
+            let client = HttpTransport::new(format!("http://{}/v2_no_params", addr)).unwrap();
             let response = client.send("foo", None).await.unwrap();
             assert_eq!(
                 response,
                 Success {
-                    jsonrpc: Some(Version::V2_0),
+                    jsonrpc: Version::V2_0,
                     result: Value::String("x".to_string()),
                     id: Id::Num(1),
                 }
@@ -335,24 +336,16 @@ mod tests {
         }
 
         {
-            let client = HttpTransport::new(format!("http://{}/v2_params", addr));
+            let client = HttpTransport::new(format!("http://{}/v2_params", addr)).unwrap();
             let response = client
                 .send("bar", Some(Params::Array(vec![])))
                 .await
                 .unwrap();
-            assert_eq!(
-                response,
-                Success {
-                    jsonrpc: Some(Version::V2_0),
-                    result: Value::String("y".to_string()),
-                    id: Id::Num(1),
-                }
-                .into()
-            );
+            assert_eq!(response, Success::new("y".into(), 1.into()).into());
         }
 
         {
-            let client = HttpTransport::new(format!("http://{}/v2_batch", addr));
+            let client = HttpTransport::new(format!("http://{}/v2_batch", addr)).unwrap();
             let response = client
                 .send_batch(vec![("foo", None), ("bar", Some(Params::Array(vec![])))])
                 .await
@@ -360,16 +353,8 @@ mod tests {
             assert_eq!(
                 response,
                 Response::Batch(vec![
-                    Output::Success(Success {
-                        jsonrpc: Some(Version::V2_0),
-                        result: Value::String("x".to_string()),
-                        id: Id::Num(1),
-                    }),
-                    Output::Success(Success {
-                        jsonrpc: Some(Version::V2_0),
-                        result: Value::String("y".to_string()),
-                        id: Id::Num(2),
-                    })
+                    Output::Success(Success::new("x".into(), 1.into())),
+                    Output::Success(Success::new("y".into(), 2.into())),
                 ])
             );
         }

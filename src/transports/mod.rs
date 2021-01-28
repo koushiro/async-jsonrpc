@@ -16,11 +16,12 @@ pub use self::http::{HttpTransport, HttpTransportBuilder};
 
 // #[cfg(feature = "ws-tokio")]
 // #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
-// mod ws;
-// #[cfg(feature = "ws-tokio")]
+mod ws;
+#[cfg(feature = "ws-tokio")]
 // #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
-// pub use self::ws::*;
+pub use self::ws::{WsTransport, WsTransportBuilder};
 
+use futures::stream::Stream;
 use jsonrpc_types::*;
 
 use crate::error::Result;
@@ -32,7 +33,7 @@ pub trait Transport {
     fn prepare<M: Into<String>>(&self, method: M, params: Option<Params>) -> MethodCall;
 
     /// Execute prepared RPC call.
-    async fn execute(&self, request: Request) -> Result<Response>;
+    async fn execute(&self, request: MethodCallRequest) -> Result<Response>;
 
     /// Send a RPC call with the given method and parameters.
     async fn send<M>(&self, method: M, params: Option<Params>) -> Result<Response>
@@ -40,10 +41,11 @@ pub trait Transport {
         M: Into<String> + Send,
     {
         let call = self.prepare(method, params);
-        let request = Request::Single(Call::MethodCall(call));
+        let request = MethodCallRequest::Single(call);
         log::debug!(
             "Request: {}",
-            serde_json::to_string(&request).expect("Serialize `Request` shouldn't be failed")
+            serde_json::to_string(&request)
+                .expect("Serialize `MethodCallRequest` shouldn't be failed")
         );
 
         let response = self.execute(request).await?;
@@ -68,12 +70,12 @@ pub trait BatchTransport: Transport {
         let calls = batch
             .into_iter()
             .map(|(method, params)| self.prepare(method, params))
-            .map(Call::MethodCall)
             .collect::<Vec<_>>();
-        let request = Request::Batch(calls);
+        let request = MethodCallRequest::Batch(calls);
         log::debug!(
             "Request: {}",
-            serde_json::to_string(&request).expect("Serialize `Request` shouldn't be failed")
+            serde_json::to_string(&request)
+                .expect("Serialize `MethodCallRequest` shouldn't be failed")
         );
 
         let response = self.execute(request).await?;
@@ -85,20 +87,14 @@ pub trait BatchTransport: Transport {
     }
 }
 
-/*
-use serde::de::DeserializeOwned;
-
-/// The type of stream pub-sub transport returns.
-pub type NotificationStream<T> = futures::stream::BoxStream<'static, T>;
-
 /// A transport implementation supporting pub sub subscriptions.
 pub trait PubsubTransport: Transport {
+    /// The type of stream this transport returns
+    type NotificationStream: Stream<Item = Notification>;
+
     /// Add a subscription to this transport
-    fn subscribe<T>(&self, id: Id) -> NotificationStream<T>
-    where
-        T: DeserializeOwned;
+    fn subscribe<T>(&self, id: Id) -> Result<Self::NotificationStream>;
 
     /// Remove a subscription from this transport
-    fn unsubscribe(&self, id: Id);
+    fn unsubscribe(&self, id: Id) -> Result<()>;
 }
-*/
