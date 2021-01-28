@@ -1,160 +1,103 @@
-#[cfg(feature = "http-reqwest")]
-mod http_reqwest;
-#[cfg(feature = "http-surf")]
-mod http_surf;
-#[cfg(feature = "ws")]
+// #[cfg(feature = "http-rt-async-std")]
+// mod http_async_std;
+// #[cfg(feature = "http-rt-async-std")]
+// pub use self::http_async_std::*;
+
+// mod http_tokio;
+// #[cfg(feature = "http-rt-tokio")]
+// pub use self::http_tokio::*;
+
+#[cfg(feature = "http-tokio")]
+//#[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
+mod http;
+#[cfg(feature = "http-tokio")]
+//#[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
+pub use self::http::{HttpTransport, HttpTransportBuilder};
+
+#[cfg(feature = "ws-tokio")]
+// #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
 mod ws;
+#[cfg(feature = "ws-tokio")]
+// #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
+pub use self::ws::{WsTransport, WsTransportBuilder};
 
-#[cfg(feature = "http-reqwest")]
-pub use self::http_reqwest::*;
-#[cfg(feature = "http-surf")]
-pub use self::http_surf::*;
-#[cfg(feature = "ws")]
-pub use self::ws::*;
+use futures::stream::BoxStream;
+use jsonrpc_types::*;
 
-use serde::de::DeserializeOwned;
+use crate::error::Result;
 
-use crate::errors::Result;
-use crate::types::*;
-
-/// Transport implementation.
+/// A transport implementation.
 #[async_trait::async_trait]
 pub trait Transport {
     /// Prepare serializable RPC call for given method with parameters.
-    fn prepare<M: Into<String>>(&self, method: M, params: Params) -> (RequestId, Call);
+    fn prepare<M: Into<String>>(&self, method: M, params: Option<Params>) -> MethodCall;
 
     /// Execute prepared RPC call.
-    async fn execute(&self, id: RequestId, request: &Request) -> Result<Response>;
+    async fn execute(&self, request: MethodCall) -> Result<Response>;
 
-    /// Send remote method with given parameters.
-    async fn send<M, T>(&self, method: M, params: Params) -> Result<T>
+    /// Send a RPC call with the given method and parameters.
+    async fn send<M>(&self, method: M, params: Option<Params>) -> Result<Response>
     where
         M: Into<String> + Send,
-        T: DeserializeOwned,
     {
-        let (id, call) = self.prepare(method, params);
-        let request = Request::Single(call);
-        debug!(
+        let request = self.prepare(method, params);
+        log::debug!(
             "Request: {}",
-            serde_json::to_string(&request).expect("Serialize `Request` never fails")
+            serde_json::to_string(&request).expect("Serialize `MethodCall` shouldn't be failed")
         );
 
-        let response = self.execute(id, &request).await?;
-        debug!(
+        let response = self.execute(request).await?;
+        log::debug!(
             "Response: {}",
-            serde_json::to_string(&response).expect("Serialize `Response` never fails")
+            serde_json::to_string(&response).expect("Serialize `Response` shouldn't be failed")
         );
-        match response {
-            Response::Single(ResponseOutput::Success(success)) => {
-                Ok(serde_json::from_value(success.result)?)
-            }
-            Response::Single(ResponseOutput::Failure(failure)) => Err(failure.error.into()),
-            Response::Batch(_) => panic!("Expected single, got batch"),
-        }
+        Ok(response)
     }
 }
 
 /// A transport implementation supporting batch requests
 #[async_trait::async_trait]
 pub trait BatchTransport: Transport {
-    /// Execute a batch of prepared RPC calls.
-    async fn execute_batch<I>(&self, requests: I) -> Result<Response>
+    /// Execute prepared a batch of RPC call.
+    async fn execute_batch<I>(&self, calls: I) -> Result<Response>
     where
-        I: IntoIterator<Item = (RequestId, Call)> + Send,
-        I::IntoIter: Send,
-    {
-        let mut iter = requests.into_iter();
-        let (id, first): (RequestId, Option<Call>) = match iter.next() {
-            Some(request) => (request.0, Some(request.1)),
-            None => (0, None),
-        };
-        let calls = first
-            .into_iter()
-            .chain(iter.map(|request| request.1))
-            .collect::<Vec<_>>();
-        let request = Request::Batch(calls);
-        debug!(
-            "Request: {}",
-            serde_json::to_string(&request).expect("Serialize `Request` never fails")
-        );
-
-        self.execute(id, &request).await
-    }
+        I: IntoIterator<Item = MethodCall> + Send,
+        I::IntoIter: Send;
 
     /// Send a batch of RPC calls with the given method and parameters.
-    async fn send_batch<I, M>(&self, method_and_params: I) -> Result<Vec<Result<Value>>>
+    async fn send_batch<I, M>(&self, batch: I) -> Result<Response>
     where
-        I: IntoIterator<Item = (M, Params)> + Send,
+        I: IntoIterator<Item = (M, Option<Params>)> + Send,
         I::IntoIter: Send,
         M: Into<String>,
     {
-        let requests = method_and_params
+        let request = batch
             .into_iter()
-            .map(|(method, params)| self.prepare(method, params));
-
-        let response = self.execute_batch(requests).await?;
-        debug!(
-            "Response: {}",
-            serde_json::to_string(&response).expect("Serialize `Response` never fails")
+            .map(|(method, params)| self.prepare(method, params))
+            .collect::<Vec<_>>();
+        log::debug!(
+            "Request: {}",
+            serde_json::to_string(&request)
+                .expect("Serialize `Vec<MethodCall>` shouldn't be failed")
         );
-        match response {
-            Response::Single(_) => panic!("Expected batch, got single"),
-            Response::Batch(outputs) => Ok(outputs
-                .into_iter()
-                .map(|output| match output {
-                    ResponseOutput::Success(success) => Ok(success.result),
-                    ResponseOutput::Failure(failure) => Err(failure.error.into()),
-                })
-                .collect::<Vec<_>>()),
-        }
-    }
 
-    /// Send a batch of RPC calls with the same method and the given parameters.
-    /// Once a request result returns an error, which will be returned directly.
-    async fn send_batch_same<I, M, T>(&self, method: M, batch_params: I) -> Result<Vec<T>>
-    where
-        I: IntoIterator<Item = Params> + Send,
-        I::IntoIter: Send,
-        M: Into<String> + Send,
-        T: DeserializeOwned,
-    {
-        let method = method.into();
-        let calls = batch_params
-            .into_iter()
-            .map(|params| self.prepare(method.clone(), params));
-
-        let response = self.execute_batch(calls).await?;
-        debug!(
+        let response = self.execute_batch(request).await?;
+        log::debug!(
             "Response: {}",
-            serde_json::to_string(&response).expect("Serialize `Response` never fails")
+            serde_json::to_string(&response).expect("Serialize `Response` shouldn't be failed")
         );
-        let values = match response {
-            Response::Single(_) => panic!("Expected batch, got single"),
-            Response::Batch(outputs) => outputs,
-        };
-        let mut results = Vec::with_capacity(values.len());
-        for value in values {
-            let value = match value {
-                ResponseOutput::Success(success) => success.result,
-                ResponseOutput::Failure(failure) => return Err(failure.error.into()),
-            };
-            let result = serde_json::from_value(value).expect("Deserialize `Value` never fails");
-            results.push(result);
-        }
-        Ok(results)
+        Ok(response)
     }
 }
 
 /// The type of stream pub-sub transport returns.
-pub type NotificationStream<T> = futures::stream::BoxStream<'static, T>;
+pub type NotificationStream = BoxStream<'static, SubscriptionNotification>;
 
 /// A transport implementation supporting pub sub subscriptions.
 pub trait PubsubTransport: Transport {
     /// Add a subscription to this transport
-    fn subscribe<T>(&self, id: SubscriptionId) -> NotificationStream<T>
-    where
-        T: DeserializeOwned;
+    fn subscribe(&self, id: Id) -> Result<NotificationStream>;
 
     /// Remove a subscription from this transport
-    fn unsubscribe(&self, id: SubscriptionId);
+    fn unsubscribe(&self, id: Id) -> Result<()>;
 }

@@ -1,3 +1,4 @@
+/*
 use async_jsonrpc_client::{
     Params, PubsubTransport, SubscriptionId, Transport, Value, WebSocketTransport,
 };
@@ -36,3 +37,6 @@ async fn main() {
         println!("Block: {:?}", value);
     }
 }
+*/
+
+fn main() {}

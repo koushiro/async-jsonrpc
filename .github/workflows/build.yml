@@ -32,13 +32,26 @@ jobs:
           command: fmt
           args: --all -- --check
 
-      - name: Code Lint
+      - name: Code Lint With `tokio` Runtime
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all-features --all-targets -- -D warnings
-  
-      - name: Test
+          args: --no-default-features --features 'http-tokio,ws-tokio' --all-targets -- -D warnings
+
+#      - name: Code Lint With `async-std` Runtime
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: clippy
+#          args: --no-default-features --features 'http-async-std,ws-async-std' --all-targets -- -D warnings
+
+      - name: Test With `tokio` Runtime
         uses: actions-rs/cargo@v1
         with:
           command: test
+          args: --no-default-features --features 'http-tokio,ws-tokio'
+
+#      - name: Test With `async-std` Runtime
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: test
+#          args: --no-default-features --features 'http-async-std,ws-async-std'
