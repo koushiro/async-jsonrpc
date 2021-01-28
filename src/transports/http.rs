@@ -238,13 +238,23 @@ impl Transport for HttpTransport {
         }
     }
 
-    async fn execute(&self, request: MethodCallRequest) -> Result<Response> {
+    async fn execute(&self, call: MethodCall) -> Result<Response> {
+        let request = MethodCallRequest::Single(call);
         self.send_request(request).await
     }
 }
 
 #[async_trait::async_trait]
-impl BatchTransport for HttpTransport {}
+impl BatchTransport for HttpTransport {
+    async fn execute_batch<I>(&self, calls: I) -> Result<Response>
+    where
+        I: IntoIterator<Item = MethodCall> + Send,
+        I::IntoIter: Send,
+    {
+        let request = MethodCallRequest::Batch(calls.into_iter().collect());
+        self.send_request(request).await
+    }
+}
 
 #[cfg(test)]
 mod tests {

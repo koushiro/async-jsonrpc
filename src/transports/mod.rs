@@ -14,7 +14,7 @@ mod http;
 //#[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
 pub use self::http::{HttpTransport, HttpTransportBuilder};
 
-// #[cfg(feature = "ws-tokio")]
+#[cfg(feature = "ws-tokio")]
 // #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
 mod ws;
 #[cfg(feature = "ws-tokio")]
@@ -33,19 +33,17 @@ pub trait Transport {
     fn prepare<M: Into<String>>(&self, method: M, params: Option<Params>) -> MethodCall;
 
     /// Execute prepared RPC call.
-    async fn execute(&self, request: MethodCallRequest) -> Result<Response>;
+    async fn execute(&self, request: MethodCall) -> Result<Response>;
 
     /// Send a RPC call with the given method and parameters.
     async fn send<M>(&self, method: M, params: Option<Params>) -> Result<Response>
     where
         M: Into<String> + Send,
     {
-        let call = self.prepare(method, params);
-        let request = MethodCallRequest::Single(call);
+        let request = self.prepare(method, params);
         log::debug!(
             "Request: {}",
-            serde_json::to_string(&request)
-                .expect("Serialize `MethodCallRequest` shouldn't be failed")
+            serde_json::to_string(&request).expect("Serialize `MethodCall` shouldn't be failed")
         );
 
         let response = self.execute(request).await?;
@@ -60,6 +58,12 @@ pub trait Transport {
 /// A transport implementation supporting batch requests
 #[async_trait::async_trait]
 pub trait BatchTransport: Transport {
+    /// Execute prepared a batch of RPC call.
+    async fn execute_batch<I>(&self, calls: I) -> Result<Response>
+    where
+        I: IntoIterator<Item = MethodCall> + Send,
+        I::IntoIter: Send;
+
     /// Send a batch of RPC calls with the given method and parameters.
     async fn send_batch<I, M>(&self, batch: I) -> Result<Response>
     where
@@ -67,18 +71,17 @@ pub trait BatchTransport: Transport {
         I::IntoIter: Send,
         M: Into<String>,
     {
-        let calls = batch
+        let request = batch
             .into_iter()
             .map(|(method, params)| self.prepare(method, params))
             .collect::<Vec<_>>();
-        let request = MethodCallRequest::Batch(calls);
         log::debug!(
             "Request: {}",
             serde_json::to_string(&request)
-                .expect("Serialize `MethodCallRequest` shouldn't be failed")
+                .expect("Serialize `Vec<MethodCall>` shouldn't be failed")
         );
 
-        let response = self.execute(request).await?;
+        let response = self.execute_batch(request).await?;
         log::debug!(
             "Response: {}",
             serde_json::to_string(&response).expect("Serialize `Response` shouldn't be failed")

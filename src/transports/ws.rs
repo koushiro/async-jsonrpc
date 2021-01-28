@@ -503,13 +503,23 @@ impl Transport for WsTransport {
         }
     }
 
-    async fn execute(&self, request: MethodCallRequest) -> Result<Response> {
+    async fn execute(&self, call: MethodCall) -> Result<Response> {
+        let request = MethodCallRequest::Single(call);
         self.send_request(request).await
     }
 }
 
 #[async_trait::async_trait]
-impl BatchTransport for WsTransport {}
+impl BatchTransport for WsTransport {
+    async fn execute_batch<I>(&self, calls: I) -> Result<Response, RpcClientError>
+    where
+        I: IntoIterator<Item = MethodCall> + Send,
+        I::IntoIter: Send,
+    {
+        let request = MethodCallRequest::Batch(calls.into_iter().collect());
+        self.send_request(request).await
+    }
+}
 
 impl PubsubTransport for WsTransport {
     type NotificationStream = mpsc::UnboundedReceiver<Notification>;
