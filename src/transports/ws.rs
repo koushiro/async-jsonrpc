@@ -25,7 +25,6 @@ use futures::{
     stream::{SplitSink, SplitStream, StreamExt},
 };
 use jsonrpc_types::*;
-use serde::de::DeserializeOwned;
 
 use crate::{
     error::{Result, RpcClientError},

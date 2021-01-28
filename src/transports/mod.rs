@@ -23,7 +23,6 @@ pub use self::ws::{WsTransport, WsTransportBuilder};
 
 use futures::stream::BoxStream;
 use jsonrpc_types::*;
-use serde::de::DeserializeOwned;
 
 use crate::error::Result;
 
