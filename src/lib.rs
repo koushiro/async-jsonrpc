@@ -2,19 +2,17 @@
 
 #![deny(missing_docs)]
 
-#[macro_use]
-extern crate log;
-
-mod errors;
+mod error;
 mod transports;
-mod types;
 
-pub use self::errors::{Result, RpcError};
-#[cfg(feature = "http-reqwest")]
-pub use self::transports::HttpReqwestTransport;
-#[cfg(feature = "http-surf")]
-pub use self::transports::HttpSurfTransport;
-pub use self::transports::{BatchTransport, PubsubTransport, Transport};
-#[cfg(feature = "ws")]
-pub use self::transports::{NotificationStream, WebSocketTransport};
-pub use self::types::*;
+pub use self::error::RpcClientError;
+pub use self::transports::{BatchTransport, NotificationStream, PubsubTransport, Transport};
+
+//#[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
+#[cfg(feature = "http-tokio")]
+pub use self::transports::{HttpTransport, HttpTransportBuilder};
+// #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
+#[cfg(feature = "ws-tokio")]
+pub use self::transports::{WsTransport, WsTransportBuilder};
+
+pub use jsonrpc_types::*;
