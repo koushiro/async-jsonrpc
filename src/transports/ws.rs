@@ -253,13 +253,13 @@ fn handle_pending_response(pendings: &mut BTreeMap<Id, Pending>, msg: &str) {
     let id = match response {
         Ok(Response::Single(Output::Success(ref success))) => success.id.clone(),
         Ok(Response::Single(Output::Failure(ref failure))) => {
-            failure.id.clone().unwrap_or_else(|| Id::Num(0))
+            failure.id.clone().unwrap_or(Id::Num(0))
         }
         Ok(Response::Batch(ref outputs)) => outputs
             .first()
             .map(|output| match output {
                 Output::Success(success) => success.id.clone(),
-                Output::Failure(failure) => failure.id.clone().unwrap_or_else(|| Id::Num(0)),
+                Output::Failure(failure) => failure.id.clone().unwrap_or(Id::Num(0)),
             })
             .unwrap_or_else(|| Id::Num(0)),
         Err(_) => Id::Num(0),

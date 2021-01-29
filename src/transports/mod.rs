@@ -92,6 +92,7 @@ pub trait BatchTransport: Transport {
 
 /// A transport implementation supporting pub sub subscriptions.
 pub trait PubsubTransport: Transport {
+    ///
     type NotificationStream: Stream<Item = SubscriptionNotification>;
 
     /// Add a subscription to this transport
