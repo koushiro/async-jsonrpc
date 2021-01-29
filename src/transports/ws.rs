@@ -535,6 +535,7 @@ impl PubsubTransport for WsTransport {
 mod tests {
     use super::*;
 
+    #[ignore]
     #[tokio::test]
     async fn websocket() {
         env_logger::init();
