@@ -19,9 +19,9 @@ pub use self::http::{HttpTransport, HttpTransportBuilder};
 mod ws;
 #[cfg(feature = "ws-tokio")]
 // #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
-pub use self::ws::{WsTransport, WsTransportBuilder};
+pub use self::ws::{NotificationStream, WsTransport, WsTransportBuilder};
 
-use futures::stream::BoxStream;
+use futures::stream::Stream;
 use jsonrpc_types::*;
 
 use crate::error::Result;
@@ -90,13 +90,13 @@ pub trait BatchTransport: Transport {
     }
 }
 
-/// The type of stream pub-sub transport returns.
-pub type NotificationStream = BoxStream<'static, SubscriptionNotification>;
-
 /// A transport implementation supporting pub sub subscriptions.
 pub trait PubsubTransport: Transport {
+    ///
+    type NotificationStream: Stream<Item = SubscriptionNotification>;
+
     /// Add a subscription to this transport
-    fn subscribe(&self, id: Id) -> Result<NotificationStream>;
+    fn subscribe(&self, id: Id) -> Result<Self::NotificationStream>;
 
     /// Remove a subscription from this transport
     fn unsubscribe(&self, id: Id) -> Result<()>;
