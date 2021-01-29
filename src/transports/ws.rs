@@ -28,7 +28,7 @@ use jsonrpc_types::*;
 
 use crate::{
     error::{Result, RpcClientError},
-    transports::{BatchTransport, NotificationStream, PubsubTransport, Transport},
+    transports::{BatchTransport, PubsubTransport, Transport},
 };
 
 /// A `WsTransportBuilder` can be used to create a `HttpTransport` with  custom configuration.
@@ -250,9 +250,18 @@ fn handle_subscription(subscriptions: &BTreeMap<Id, Subscription>, msg: &str) {
 
 fn handle_pending_response(pendings: &mut BTreeMap<Id, Pending>, msg: &str) {
     let response = serde_json::from_str::<Response>(msg).map_err(Into::into);
-    let id = match &response {
-        Ok(Response::Single(output)) => output.id(),
-        Ok(Response::Batch(outputs)) => outputs.get(0).map_or(Id::Num(0), |output| output.id()),
+    let id = match response {
+        Ok(Response::Single(Output::Success(ref success))) => success.id.clone(),
+        Ok(Response::Single(Output::Failure(ref failure))) => {
+            failure.id.clone().unwrap_or_else(|| Id::Num(0))
+        }
+        Ok(Response::Batch(ref outputs)) => outputs
+            .first()
+            .map(|output| match output {
+                Output::Success(success) => success.id.clone(),
+                Output::Failure(failure) => failure.id.clone().unwrap_or_else(|| Id::Num(0)),
+            })
+            .unwrap_or_else(|| Id::Num(0)),
         Err(_) => Id::Num(0),
     };
     if let Some(request) = pendings.remove(&id) {
@@ -505,11 +514,16 @@ impl BatchTransport for WsTransport {
     }
 }
 
+///
+pub type NotificationStream = mpsc::UnboundedReceiver<SubscriptionNotification>;
+
 impl PubsubTransport for WsTransport {
-    fn subscribe(&self, id: Id) -> Result<NotificationStream> {
+    type NotificationStream = NotificationStream;
+
+    fn subscribe(&self, id: Id) -> Result<Self::NotificationStream> {
         let (sink, stream) = mpsc::unbounded();
         self.send_msg(TransportMessage::Subscribe { id, sender: sink })?;
-        Ok(stream.boxed())
+        Ok(stream)
     }
 
     fn unsubscribe(&self, id: Id) -> Result<()> {
@@ -521,7 +535,6 @@ impl PubsubTransport for WsTransport {
 mod tests {
     use super::*;
 
-    #[ignore]
     #[tokio::test]
     async fn websocket() {
         env_logger::init();
