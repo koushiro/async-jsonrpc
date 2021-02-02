@@ -14,7 +14,7 @@
 [deps-svg]: https://deps.rs/repo/github/koushiro/async-jsonrpc-client/status.svg
 [deps-url]: https://deps.rs/repo/github/koushiro/async-jsonrpc-client
 
-An asynchronous JSON-RPC client library, written in Rust, which supports HTTP and WebSocket.
+An asynchronous JSON-RPC 2.0 client library, written in Rust, which supports HTTP and WebSocket.
 
 ## Usage
 

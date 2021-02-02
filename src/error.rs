@@ -8,14 +8,17 @@ pub enum RpcClientError {
     /// Json serialization/deserialization error.
     #[error(transparent)]
     Json(#[from] serde_json::Error),
-    #[cfg(feature = "http-tokio")]
+
     /// HTTP request error.
+    #[cfg(feature = "http-tokio")]
     #[error(transparent)]
     HttpRequest(#[from] reqwest::Error),
-    #[cfg(feature = "http-async-std")]
+
     /// HTTP request error.
+    #[cfg(feature = "http-async-std")]
     #[error(transparent)]
     HttpRequest(anyhow::Error),
+
     /// HTTP connection error.
     #[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
     #[error(transparent)]
@@ -28,6 +31,10 @@ pub enum RpcClientError {
     #[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
     #[error("Cannot send request, internal task finished")]
     InternalTaskFinish,
+    /// Internal channel error
+    #[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
+    #[error("Internal channel error, send fail")]
+    InternalChannel,
 
     /// Rpc request error, return failure response.
     #[error(transparent)]
