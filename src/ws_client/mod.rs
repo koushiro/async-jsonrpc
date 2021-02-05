@@ -4,88 +4,77 @@ mod task;
 #[cfg(test)]
 mod tests;
 
-use std::marker::PhantomData;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use std::time::Duration;
 
 use futures::{
     channel::{mpsc, oneshot},
-    future::FutureExt,
+    future::{self, FutureExt},
     sink::SinkExt,
-    stream::StreamExt,
+    stream::{Stream, StreamExt},
 };
 use jsonrpc_types::*;
-use serde::de::DeserializeOwned;
 
-pub use self::builder::WsTransportBuilder;
-use crate::error::{Result, RpcClientError};
+pub use self::builder::WsClientBuilder;
+use crate::{
+    error::{ClientError, Result},
+    transport::{BatchTransport, PubsubTransport, Transport},
+};
 
 /// Message that the client can send to the background task.
 pub(crate) enum ToBackTaskMessage {
-    Notification {
-        method: String,
-        params: Option<Params>,
-    },
     Request {
         method: String,
         params: Option<Params>,
-        send_back: oneshot::Sender<Result<Value>>,
+        /// One-shot channel where to send back the response of the request.
+        send_back: oneshot::Sender<Result<Output>>,
+    },
+    BatchRequest {
+        batch: Vec<(String, Option<Params>)>,
+        /// One-shot channel where to send back the response of the batch request.
+        send_back: oneshot::Sender<Result<Vec<Output>>>,
     },
     Subscribe {
         subscribe_method: String,
         unsubscribe_method: String,
         params: Option<Params>,
-        send_back: oneshot::Sender<Result<(Id, mpsc::Receiver<Value>)>>,
+        /// One-shot channel where to send back the response (subscription id) and a `Receiver`
+        /// that will receive subscription notification when we get a response (subscription id)
+        /// from the server about the subscription.
+        send_back: oneshot::Sender<Result<(Id, mpsc::Receiver<SubscriptionNotification>)>>,
     },
+    /// When a subscription channel is closed, we send this message to the backend task to clean
+    /// the subscription.
     SubscriptionClosed(Id),
 }
 
 /// WebSocket transport
-pub struct WsTransport {
+#[derive(Clone)]
+pub struct WsClient {
     to_back: mpsc::Sender<ToBackTaskMessage>,
+    /// Request timeout.
+    timeout: Option<Duration>,
 }
 
-impl WsTransport {
+impl WsClient {
     /// Creates a new WebSocket transport.
     pub async fn new(url: impl Into<String>) -> Result<Self> {
-        WsTransportBuilder::new().build(url).await
+        WsClientBuilder::new().build(url).await.map_err(ClientError::WebSocket)
     }
 
     /// Creates a `WsTransportBuilder` to configure a `WsTransport`.
     ///
     /// This is the same as `WsTransportBuilder::new()`.
-    pub fn builder() -> WsTransportBuilder {
-        WsTransportBuilder::new()
-    }
-
-    /// Sends a `notification` request to the server.
-    pub async fn notification(
-        &self,
-        method: impl Into<String>,
-        params: Option<Params>,
-    ) -> Result<()> {
-        let method = method.into();
-        log::trace!(
-            "[frontend] send request: method={}, params={:?}",
-            method,
-            params
-        );
-        self.to_back
-            .clone()
-            .send(ToBackTaskMessage::Notification { method, params })
-            .await
-            .map_err(|_| RpcClientError::InternalChannel)
+    pub fn builder() -> WsClientBuilder {
+        WsClientBuilder::new()
     }
 
     /// Sends a `method call` request to the server.
-    pub async fn request<T>(&self, method: impl Into<String>, params: Option<Params>) -> Result<T>
-    where
-        T: DeserializeOwned,
-    {
+    async fn send_request(&self, method: impl Into<String>, params: Option<Params>) -> Result<Output> {
         let method = method.into();
-        log::trace!(
-            "[frontend] send request: method={}, params={:?}",
-            method,
-            params
-        );
+        log::debug!("[frontend] Send request: method={}, params={:?}", method, params);
+
         let (tx, rx) = oneshot::channel();
         self.to_back
             .clone()
@@ -95,30 +84,81 @@ impl WsTransport {
                 send_back: tx,
             })
             .await
-            .map_err(|_| RpcClientError::InternalChannel)?;
+            .map_err(|_| ClientError::InternalChannel)?;
 
-        let value = match rx.await {
-            Ok(Ok(value)) => value,
-            Ok(Err(err)) => return Err(err),
-            Err(_) => return Err(RpcClientError::InternalTaskFinish),
+        let res = if let Some(duration) = self.timeout {
+            #[cfg(feature = "ws-async-std")]
+            let timeout = async_std::task::sleep(duration);
+            #[cfg(feature = "ws-tokio")]
+            let timeout = tokio::time::sleep(duration);
+            futures::pin_mut!(rx, timeout);
+            match future::select(rx, timeout).await {
+                future::Either::Left((response, _)) => response,
+                future::Either::Right((_, _)) => return Err(ClientError::WsRequestTimeout),
+            }
+        } else {
+            rx.await
         };
-        Ok(serde_json::from_value(value)?)
+        match res {
+            Ok(Ok(output)) => Ok(output),
+            Ok(Err(err)) => Err(err),
+            Err(_) => Err(ClientError::InternalChannel),
+        }
+    }
+
+    /// Sends a batch of `method call` requests to the server.
+    async fn send_request_batch<I, M>(&self, batch: I) -> Result<Vec<Output>>
+    where
+        I: IntoIterator<Item = (M, Option<Params>)>,
+        M: Into<String>,
+    {
+        let batch = batch
+            .into_iter()
+            .map(|(method, params)| (method.into(), params))
+            .collect::<Vec<_>>();
+        log::debug!("[frontend] Send a batch of requests: {:?}", batch);
+
+        let (tx, rx) = oneshot::channel();
+        self.to_back
+            .clone()
+            .send(ToBackTaskMessage::BatchRequest { batch, send_back: tx })
+            .await
+            .map_err(|_| ClientError::InternalChannel)?;
+
+        let res = if let Some(duration) = self.timeout {
+            #[cfg(feature = "ws-async-std")]
+            let timeout = async_std::task::sleep(duration);
+            #[cfg(feature = "ws-tokio")]
+            let timeout = tokio::time::sleep(duration);
+            futures::pin_mut!(rx, timeout);
+            match future::select(rx, timeout).await {
+                future::Either::Left((response, _)) => response,
+                future::Either::Right((_, _)) => return Err(ClientError::WsRequestTimeout),
+            }
+        } else {
+            rx.await
+        };
+        match res {
+            Ok(Ok(outputs)) => Ok(outputs),
+            Ok(Err(err)) => Err(err),
+            Err(_) => Err(ClientError::InternalChannel),
+        }
     }
 
     /// Sends a subscribe request to the server.
     ///
     /// `subscribe_method` and `params` are used to ask for the subscription towards the server.
     /// `unsubscribe_method` is used to close the subscription.
-    pub async fn subscribe<Notif>(
+    async fn send_subscribe(
         &self,
         subscribe_method: impl Into<String>,
         unsubscribe_method: impl Into<String>,
         params: Option<Params>,
-    ) -> Result<WsSubscription<Notif>> {
+    ) -> Result<WsSubscription<SubscriptionNotification>> {
         let subscribe_method = subscribe_method.into();
         let unsubscribe_method = unsubscribe_method.into();
-        log::trace!(
-            "[frontend] subscribe: method={}/{}, params={:?}",
+        log::debug!(
+            "[frontend] Subscribe: method={}/{}, params={:?}",
             subscribe_method,
             unsubscribe_method,
             params
@@ -133,50 +173,64 @@ impl WsTransport {
                 send_back: tx,
             })
             .await
-            .map_err(|_| RpcClientError::InternalChannel)?;
+            .map_err(|_| ClientError::InternalChannel)?;
 
-        let (id, notification_rx) = match rx.await {
-            Ok(Ok(value)) => value,
-            Ok(Err(err)) => return Err(err),
-            Err(_) => return Err(RpcClientError::InternalTaskFinish),
+        let res = if let Some(duration) = self.timeout {
+            #[cfg(feature = "ws-async-std")]
+            let timeout = async_std::task::sleep(duration);
+            #[cfg(feature = "ws-tokio")]
+            let timeout = tokio::time::sleep(duration);
+            futures::pin_mut!(rx, timeout);
+            match future::select(rx, timeout).await {
+                future::Either::Left((response, _)) => response,
+                future::Either::Right((_, _)) => return Err(ClientError::WsRequestTimeout),
+            }
+        } else {
+            rx.await
         };
-        Ok(WsSubscription {
-            marker: PhantomData,
-            to_back: self.to_back.clone(),
-            notification_rx,
-            id,
-        })
+        match res {
+            Ok(Ok((id, notification_rx))) => Ok(WsSubscription {
+                id,
+                notification_rx,
+                to_back: self.to_back.clone(),
+            }),
+            Ok(Err(err)) => Err(err),
+            Err(_) => Err(ClientError::InternalChannel),
+        }
+    }
+
+    /// Sends a unsubscribe request to the server.
+    async fn send_unsubscribe(&self, unsubscribe_method: impl Into<String>, subscription_id: Id) -> Result<Output> {
+        let subscription_id = serde_json::to_value(subscription_id)?;
+        let params = Params::Array(vec![subscription_id]);
+        self.send_request(unsubscribe_method, Some(params)).await
     }
 }
 
 /// Active subscription on a websocket client.
 pub struct WsSubscription<Notif> {
-    marker: PhantomData<Notif>,
-    // Subscription ID.
-    id: Id,
+    /// Subscription ID.
+    pub id: Id,
     /// Channel from which we receive notifications from the server.
-    notification_rx: mpsc::Receiver<Value>,
+    notification_rx: mpsc::Receiver<Notif>,
     /// Channel to send unsubscribe request to the background task.
     to_back: mpsc::Sender<ToBackTaskMessage>,
 }
 
-impl<Notif> WsSubscription<Notif>
-where
-    Notif: DeserializeOwned,
-{
+impl<Notif> WsSubscription<Notif> {
     /// Returns the next notification from the websocket stream.
     ///
     /// Ignore any malformed packet.
     pub async fn next(&mut self) -> Option<Notif> {
-        loop {
-            match self.notification_rx.next().await {
-                Some(value) => match serde_json::from_value(value) {
-                    Ok(res) => return Some(res),
-                    Err(err) => log::error!("Subscription response error: {}", err),
-                },
-                None => return None,
-            }
-        }
+        self.notification_rx.next().await
+    }
+}
+
+impl<Notif> Stream for WsSubscription<Notif> {
+    type Item = Notif;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        mpsc::Receiver::<Notif>::poll_next(Pin::new(&mut self.notification_rx), cx)
     }
 }
 
@@ -187,5 +241,61 @@ impl<Notif> Drop for WsSubscription<Notif> {
             .to_back
             .send(ToBackTaskMessage::SubscriptionClosed(id))
             .now_or_never();
+    }
+}
+
+#[async_trait::async_trait]
+impl Transport for WsClient {
+    async fn request<M>(&self, method: M, params: Option<Params>) -> Result<Output>
+    where
+        M: Into<String> + Send,
+    {
+        self.send_request(method, params).await
+    }
+}
+
+#[async_trait::async_trait]
+impl BatchTransport for WsClient {
+    async fn request_batch<I, M>(&self, batch: I) -> Result<Vec<Output>>
+    where
+        I: IntoIterator<Item = (M, Option<Params>)> + Send,
+        I::IntoIter: Send,
+        M: Into<String>,
+    {
+        self.send_request_batch(batch).await
+    }
+}
+
+#[async_trait::async_trait]
+impl PubsubTransport for WsClient {
+    type NotificationStream = WsSubscription<SubscriptionNotification>;
+
+    async fn subscribe<M>(
+        &self,
+        subscribe_method: M,
+        unsubscribe_method: M,
+        params: Option<Params>,
+    ) -> Result<(Id, Self::NotificationStream)>
+    where
+        M: Into<String> + Send,
+    {
+        let notification_stream = self
+            .send_subscribe(subscribe_method, unsubscribe_method, params)
+            .await?;
+        Ok((notification_stream.id.clone(), notification_stream))
+    }
+
+    async fn unsubscribe<M>(&self, unsubscribe_method: M, subscription_id: Id) -> Result<bool>
+    where
+        M: Into<String> + Send,
+    {
+        let output = self.send_unsubscribe(unsubscribe_method, subscription_id).await?;
+        match output {
+            Output::Success(Success { result, .. }) => Ok(serde_json::from_value::<bool>(result)?),
+            Output::Failure(failure) => {
+                log::warn!("Unexpected unsubscribe response: {}", failure);
+                Ok(false)
+            }
+        }
     }
 }

@@ -212,7 +212,7 @@ async fn handle_message(
     subscriptions: &BTreeMap<Id, Subscription>,
     sink: &mut SplitSink<WebSocketStream<ConnectStream>, Message>,
 ) {
-    log::trace!("Message received: {:?}", msg);
+    log::debug!("Message received: {:?}", msg);
     match msg {
         Message::Text(msg) => {
             handle_subscription(subscriptions, &msg);

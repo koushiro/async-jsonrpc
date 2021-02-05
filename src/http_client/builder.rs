@@ -6,28 +6,23 @@ use std::{
 
 use http::header::{self, HeaderMap, HeaderName, HeaderValue};
 
-use crate::{error::Result, http_client::HttpTransport};
+use crate::{error::Result, http_client::HttpClient};
 
 /// A `HttpTransportBuilder` can be used to create a `HttpTransport` with  custom configuration.
 #[derive(Debug)]
-pub struct HttpTransportBuilder {
-    headers: HeaderMap,
+pub struct HttpClientBuilder {
+    pub(crate) headers: HeaderMap,
     timeout: Option<Duration>,
     connect_timeout: Option<Duration>,
-    pool_idle_timeout: Option<Duration>,
-    pool_max_idle_per_host: usize,
-    tcp_keepalive: Option<Duration>,
-    tcp_nodelay: bool,
-    https_only: bool,
 }
 
-impl Default for HttpTransportBuilder {
+impl Default for HttpClientBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl HttpTransportBuilder {
+impl HttpClientBuilder {
     /// Creates a new `HttpTransportBuilder`.
     ///
     /// This is the same as `HttpTransport::builder()`.
@@ -36,11 +31,6 @@ impl HttpTransportBuilder {
             headers: HeaderMap::new(),
             timeout: None,
             connect_timeout: None,
-            pool_idle_timeout: Some(Duration::from_secs(90)),
-            pool_max_idle_per_host: usize::max_value(),
-            tcp_keepalive: None,
-            tcp_nodelay: false,
-            https_only: false,
         }
     }
 
@@ -115,63 +105,11 @@ impl HttpTransportBuilder {
         self
     }
 
-    /// Set an optional timeout for idle sockets being kept-alive.
-    ///
-    /// Pass `None` to disable timeout.
-    ///
-    /// Default is 90 seconds.
-    pub fn pool_idle_timeout(mut self, val: Duration) -> Self {
-        self.pool_idle_timeout = Some(val);
-        self
-    }
-
-    /// Sets the maximum idle connection per host allowed in the pool.
-    pub fn pool_max_idle_per_host(mut self, max: usize) -> Self {
-        self.pool_max_idle_per_host = max;
-        self
-    }
-
-    // TCP options
-
-    /// Set whether sockets have `SO_NODELAY` enabled.
-    ///
-    /// Default is `true`.
-    pub fn tcp_nodelay(mut self, enabled: bool) -> Self {
-        self.tcp_nodelay = enabled;
-        self
-    }
-
-    /// Set that all sockets have `SO_KEEPALIVE` set with the supplied duration.
-    ///
-    /// If `None`, the option will not be set.
-    pub fn tcp_keepalive(mut self, val: Duration) -> Self {
-        self.tcp_keepalive = Some(val);
-        self
-    }
-
-    // ========================================================================
-    // TLS options
-    // ========================================================================
-
-    /// Restrict the Client to be used with HTTPS only requests.
-    ///
-    /// Defaults to false.
-    pub fn https_only(mut self, enabled: bool) -> Self {
-        self.https_only = enabled;
-        self
-    }
-
     // ========================================================================
 
     /// Returns a `HttpTransport` that uses this `HttpTransportBuilder` configuration.
-    pub fn build<U: Into<String>>(self, url: U) -> Result<HttpTransport> {
-        let builder = reqwest::Client::builder()
-            .default_headers(self.headers)
-            .pool_idle_timeout(self.pool_idle_timeout)
-            .pool_max_idle_per_host(self.pool_max_idle_per_host)
-            .tcp_keepalive(self.tcp_keepalive)
-            .tcp_nodelay(self.tcp_nodelay)
-            .https_only(self.https_only);
+    pub fn build<U: Into<String>>(self, url: U) -> Result<HttpClient> {
+        let builder = reqwest::Client::builder().default_headers(self.headers);
         let builder = if let Some(timeout) = self.timeout {
             builder.timeout(timeout)
         } else {
@@ -183,7 +121,7 @@ impl HttpTransportBuilder {
             builder
         };
         let client = builder.build()?;
-        Ok(HttpTransport {
+        Ok(HttpClient {
             url: url.into(),
             id: Arc::new(AtomicU64::new(1)),
             client,

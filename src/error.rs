@@ -1,42 +1,56 @@
 use thiserror::Error;
 
-pub(crate) type Result<T, E = RpcClientError> = std::result::Result<T, E>;
+pub(crate) type Result<T, E = ClientError> = std::result::Result<T, E>;
 
-/// The error type for rpc client.
+/// WebSocket error type.
+#[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
+pub use async_tungstenite::tungstenite::Error as WsError;
+
+/// The error type for rpc transport.
 #[derive(Debug, Error)]
-pub enum RpcClientError {
+pub enum ClientError {
     /// Json serialization/deserialization error.
     #[error(transparent)]
     Json(#[from] serde_json::Error),
 
-    /// HTTP request error.
+    /// HTTP error.
     #[cfg(feature = "http-tokio")]
     #[error(transparent)]
-    HttpRequest(#[from] reqwest::Error),
+    Http(#[from] reqwest::Error),
 
-    /// HTTP request error.
+    /// HTTP error.
     #[cfg(feature = "http-async-std")]
     #[error(transparent)]
-    HttpRequest(anyhow::Error),
+    Http(anyhow::Error),
 
-    /// HTTP connection error.
-    #[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
-    #[error(transparent)]
-    HttpConnection(#[from] async_tungstenite::tungstenite::http::Error),
     /// WebSocket protocol error.
     #[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
     #[error(transparent)]
-    WebSocket(#[from] async_tungstenite::tungstenite::Error),
+    WebSocket(#[from] WsError),
+    /// WebSocket request timeout.
+    #[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
+    #[error("WebSocket request timeout")]
+    WsRequestTimeout,
+    /// Duplicate request ID.
+    #[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
+    #[error("Duplicate request ID")]
+    DuplicateRequestId,
+    /// Invalid Request ID.
+    #[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
+    #[error("Invalid request ID")]
+    InvalidRequestId,
+    /// Invalid Subscription ID.
+    #[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
+    #[error("Invalid subscription ID")]
+    InvalidSubscriptionId,
+    /*
     /// Internal task finished
     #[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
     #[error("Cannot send request, internal task finished")]
     InternalTaskFinish,
+    */
     /// Internal channel error
     #[cfg(any(feature = "ws-tokio", feature = "ws-async-std"))]
-    #[error("Internal channel error, send fail")]
+    #[error("Internal channel error")]
     InternalChannel,
-
-    /// Rpc request error, return failure response.
-    #[error(transparent)]
-    RpcResponse(#[from] jsonrpc_types::Error),
 }

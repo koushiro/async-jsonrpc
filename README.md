@@ -16,6 +16,13 @@
 
 An asynchronous JSON-RPC 2.0 client library, written in Rust, which supports HTTP and WebSocket.
 
+## Features
+
+- support HTTP
+- support WebSocket
+- support batch request
+- support subscription (only for WebSocket client)
+
 ## Usage
 
 See the [examples](examples) for details.

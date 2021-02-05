@@ -5,25 +5,24 @@ use futures::channel::mpsc;
 use http::header::{self, HeaderMap, HeaderName, HeaderValue};
 
 use crate::{
-    error::Result,
-    ws_client::{task::WsTask, WsTransport},
+    error::WsError,
+    ws_client::{task::WsTask, WsClient},
 };
 
 /// A `WsTransportBuilder` can be used to create a `HttpTransport` with  custom configuration.
 #[derive(Debug)]
-pub struct WsTransportBuilder {
+pub struct WsClientBuilder {
     headers: HeaderMap,
     timeout: Option<Duration>,
-    connection_timeout: Option<Duration>,
 }
 
-impl Default for WsTransportBuilder {
+impl Default for WsClientBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl WsTransportBuilder {
+impl WsClientBuilder {
     /// Creates a new `WsTransportBuilder`.
     ///
     /// This is the same as `WsTransport::builder()`.
@@ -31,7 +30,6 @@ impl WsTransportBuilder {
         Self {
             headers: HeaderMap::new(),
             timeout: None,
-            connection_timeout: None,
         }
     }
 
@@ -39,7 +37,7 @@ impl WsTransportBuilder {
     // HTTP header options
     // ========================================================================
 
-    /// Enable basic authentication.
+    /// Enables basic authentication.
     pub fn basic_auth<U, P>(self, username: U, password: Option<P>) -> Self
     where
         U: fmt::Display,
@@ -56,7 +54,7 @@ impl WsTransportBuilder {
         self.header(header::AUTHORIZATION, value)
     }
 
-    /// Enable bearer authentication.
+    /// Enables bearer authentication.
     pub fn bearer_auth<T>(self, token: T) -> Self
     where
         T: fmt::Display,
@@ -93,30 +91,15 @@ impl WsTransportBuilder {
         self
     }
 
-    /// Set a timeout for only the connect phase of a `Client`.
-    ///
-    /// Default is `None`.
-    ///
-    /// # Note
-    ///
-    /// This **requires** the futures be executed in a tokio runtime with
-    /// a tokio timer enabled.
-    pub fn connection_timeout(mut self, timeout: Duration) -> Self {
-        self.connection_timeout = Some(timeout);
-        self
-    }
-
     // ========================================================================
 
     /// Returns a `WsTransport` that uses this `WsTransportBuilder` configuration.
-    pub async fn build(self, url: impl Into<String>) -> Result<WsTransport> {
+    pub async fn build(self, url: impl Into<String>) -> Result<WsClient, WsError> {
         let url = url.into();
         let mut handshake_builder = HandShakeRequest::get(&url);
-        let headers = handshake_builder
-            .headers_mut()
-            .expect("HandShakeRequest just created");
+        let headers = handshake_builder.headers_mut().expect("handshake request just created");
         headers.extend(self.headers);
-        let handshake_req = handshake_builder.body(())?;
+        let handshake_req = handshake_builder.body(()).map_err(WsError::HttpFormat)?;
 
         let task = WsTask::handshake(handshake_req).await?;
 
@@ -126,6 +109,9 @@ impl WsTransportBuilder {
         #[cfg(feature = "ws-tokio")]
         let _handle = tokio::spawn(task.into_task(from_front));
 
-        Ok(WsTransport { to_back })
+        Ok(WsClient {
+            to_back,
+            timeout: self.timeout,
+        })
     }
 }
