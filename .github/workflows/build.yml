@@ -48,22 +48,22 @@ jobs:
 #        uses: actions-rs/cargo@v1
 #        with:
 #          command: test
-#          args: -no-default-features --features 'http-async-std'
+#          args: --no-default-features --features 'http-async-std'
 
       - name: Test `http-tokio`
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: -no-default-features --features 'http-tokio'
+          args: --no-default-features --features 'http-tokio'
 
       - name: Test `ws-async-std`
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: -no-default-features --features 'ws-async-std'
+          args: --no-default-features --features 'ws-async-std'
 
       - name: Test `ws-tokio`
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: -no-default-features --features 'ws-tokio'
+          args: --no-default-features --features 'ws-tokio'
