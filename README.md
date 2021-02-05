@@ -22,6 +22,7 @@ An asynchronous JSON-RPC 2.0 client library, written in Rust, which supports HTT
 - support WebSocket
 - support batch request
 - support subscription (only for WebSocket client)
+- support `async-std` and `tokio` runtime
 
 ## Usage
 
