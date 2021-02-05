@@ -9,7 +9,7 @@ use crate::{
     ws_client::{task::WsTask, WsClient},
 };
 
-/// A `WsTransportBuilder` can be used to create a `HttpTransport` with  custom configuration.
+/// A `WsClientBuilder` can be used to create a `HttpClient` with  custom configuration.
 #[derive(Debug)]
 pub struct WsClientBuilder {
     headers: HeaderMap,
@@ -23,9 +23,9 @@ impl Default for WsClientBuilder {
 }
 
 impl WsClientBuilder {
-    /// Creates a new `WsTransportBuilder`.
+    /// Creates a new `WsClientBuilder`.
     ///
-    /// This is the same as `WsTransport::builder()`.
+    /// This is the same as `WsClient::builder()`.
     pub fn new() -> Self {
         Self {
             headers: HeaderMap::new(),
@@ -93,7 +93,7 @@ impl WsClientBuilder {
 
     // ========================================================================
 
-    /// Returns a `WsTransport` that uses this `WsTransportBuilder` configuration.
+    /// Returns a `WsClient` that uses this `WsClientBuilder` configuration.
     pub async fn build(self, url: impl Into<String>) -> Result<WsClient, WsError> {
         let url = url.into();
         let mut handshake_builder = HandShakeRequest::get(&url);

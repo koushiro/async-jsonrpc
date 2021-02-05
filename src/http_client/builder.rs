@@ -8,7 +8,7 @@ use http::header::{self, HeaderMap, HeaderName, HeaderValue};
 
 use crate::{error::Result, http_client::HttpClient};
 
-/// A `HttpTransportBuilder` can be used to create a `HttpTransport` with  custom configuration.
+/// A `HttpClientBuilder` can be used to create a `HttpClient` with  custom configuration.
 #[derive(Debug)]
 pub struct HttpClientBuilder {
     pub(crate) headers: HeaderMap,
@@ -23,9 +23,9 @@ impl Default for HttpClientBuilder {
 }
 
 impl HttpClientBuilder {
-    /// Creates a new `HttpTransportBuilder`.
+    /// Creates a new `HttpClientBuilder`.
     ///
-    /// This is the same as `HttpTransport::builder()`.
+    /// This is the same as `HttpClient::builder()`.
     pub fn new() -> Self {
         Self {
             headers: HeaderMap::new(),
@@ -107,7 +107,7 @@ impl HttpClientBuilder {
 
     // ========================================================================
 
-    /// Returns a `HttpTransport` that uses this `HttpTransportBuilder` configuration.
+    /// Returns a `HttpClient` that uses this `HttpClientBuilder` configuration.
     pub fn build<U: Into<String>>(self, url: U) -> Result<HttpClient> {
         let builder = reqwest::Client::builder().default_headers(self.headers);
         let builder = if let Some(timeout) = self.timeout {

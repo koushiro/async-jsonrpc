@@ -30,9 +30,9 @@ impl HttpClient {
         HttpClientBuilder::new().build(url)
     }
 
-    /// Creates a `HttpTransportBuilder` to configure a `HttpTransport`.
+    /// Creates a `HttpClientBuilder` to configure a `HttpClient`.
     ///
-    /// This is the same as `HttpTransportBuilder::new()`.
+    /// This is the same as `HttpClientBuilder::new()`.
     pub fn builder() -> HttpClientBuilder {
         HttpClientBuilder::new()
     }

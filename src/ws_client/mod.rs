@@ -63,9 +63,9 @@ impl WsClient {
         WsClientBuilder::new().build(url).await.map_err(ClientError::WebSocket)
     }
 
-    /// Creates a `WsTransportBuilder` to configure a `WsTransport`.
+    /// Creates a `WsClientBuilder` to configure a `WsClient`.
     ///
-    /// This is the same as `WsTransportBuilder::new()`.
+    /// This is the same as `WsClientBuilder::new()`.
     pub fn builder() -> WsClientBuilder {
         WsClientBuilder::new()
     }
