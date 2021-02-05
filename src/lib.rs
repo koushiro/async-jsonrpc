@@ -1,18 +1,27 @@
-//! An asynchronous JSON-RPC client library, which supports HTTP and WebSocket.
+//! An asynchronous JSON-RPC 2.0 client library, which supports HTTP and WebSocket.
 
 #![deny(missing_docs)]
 
 mod error;
-mod transports;
+mod transport;
 
-pub use self::error::RpcClientError;
-pub use self::transports::{BatchTransport, PubsubTransport, Transport};
-
-//#[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
 #[cfg(feature = "http-tokio")]
-pub use self::transports::{HttpTransport, HttpTransportBuilder};
-// #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
-#[cfg(feature = "ws-tokio")]
-pub use self::transports::{NotificationStream, WsTransport, WsTransportBuilder};
+mod http_client;
+#[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
+mod ws_client;
 
+pub use self::{
+    error::ClientError,
+    transport::{BatchTransport, PubsubTransport, Transport},
+};
+
+#[cfg(feature = "http-tokio")]
+pub use self::http_client::{HttpClient, HttpClientBuilder};
+#[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
+pub use self::{
+    error::WsError,
+    ws_client::{WsClient, WsClientBuilder},
+};
+
+pub use http::header::{self, HeaderName, HeaderValue};
 pub use jsonrpc_types::*;

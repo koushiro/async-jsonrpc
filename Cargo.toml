@@ -1,6 +1,6 @@
 [package]
 name = "async-jsonrpc-client"
-version = "0.2.0-dev"
+version = "0.2.0-pre.0"
 authors = ["koushiro <koushiro.cqx@gmail.com>"]
 edition = "2018"
 readme = "README.md"
@@ -11,19 +11,23 @@ description = "An asynchronous JSON-RPC client library, which supports HTTP and 
 keywords = ["async", "jsonrpc", "client"]
 
 [features]
-default = ["http-tokio", "ws-tokio"]
+default = []
+async-std-runtime = ["ws-async-std"]
+tokio-runtime = ["http-tokio", "ws-tokio"]
+
 # HTTP
 http-tokio = ["tokio", "reqwest"]
-http-async-std = ["async-std", "anyhow", "surf"]
+
 # WebSocket
+ws-async-std = ["async-std", "async-tungstenite/async-std-runtime", "async-tungstenite/async-tls"]
 ws-tokio = ["tokio", "async-tungstenite/tokio-runtime", "async-tungstenite/tokio-native-tls"]
-ws-async-std = ["async-std", "async-tungstenite/async-std-runtime", "async-tungstenite/async-native-tls"]
 
 [dependencies]
 async-trait = "0.1"
 base64 = "0.13"
 futures = "0.3"
 log = "0.4"
+http = "0.2"
 jsonrpc-types = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -31,44 +35,36 @@ thiserror = "1.0"
 
 # HTTP
 reqwest = { version = "0.11", features = ["json"], optional = true }
-anyhow = { version = "1.0", optional = true }
-surf = { version = "2.1", default-features = false, features = ["h1-client"], optional = true }
 
 # WebSocket
 async-tungstenite = { version = "0.12", optional = true }
-parking_lot = { version = "0.11", optional = true }
 
 # Runtime
 async-std = { version = "1.9", optional = true }
-tokio = { version = "1.1", optional = true }
+tokio = { version = "1.1", features = ["time"], optional = true }
 
 [dev-dependencies]
 env_logger = "0.8"
 async-std = { version = "1.9", features = ["attributes"] }
 hyper = { version = "0.14", features = ["server"] }
-tokio = { version = "1.0", features = ["macros"] }
+tokio = { version = "1.1", features = ["macros", "rt-multi-thread"] }
+
+#[[example]]
+#name = "http-async-std"
+#path = "examples/http/async_std.rs"
+#required-features = ["http-async-std"]
 
 [[example]]
 name = "http-tokio"
-path = "examples/http_tokio.rs"
+path = "examples/http/tokio.rs"
 required-features = ["http-tokio"]
-
-[[example]]
-name = "http-tokio-v1"
-path = "examples/http_tokio_v1.rs"
-required-features = ["http-tokio"]
-
-[[example]]
-name = "http-async-std"
-path = "examples/http_async_std.rs"
-required-features = ["http-async-std"]
-
-[[example]]
-name = "ws-tokio"
-path = "examples/ws_tokio.rs"
-required-features = ["ws-tokio"]
 
 [[example]]
 name = "ws-async-std"
-path = "examples/ws_async_std.rs"
+path = "examples/ws/async_std.rs"
 required-features = ["ws-async-std"]
+
+[[example]]
+name = "ws-tokio"
+path = "examples/ws/tokio.rs"
+required-features = ["ws-tokio"]
