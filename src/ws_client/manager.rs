@@ -39,13 +39,16 @@ pub struct TaskManager {
     requests: HashMap<u64, RequestKind>,
     /// Helper to find a request ID by subscription ID instead of looking through all requests.
     subscriptions: HashMap<Id, u64>,
+    /// Max capacity of every subscription channel.
+    pub(crate) max_capacity_per_subscription: usize,
 }
 
 impl TaskManager {
-    pub fn new() -> Self {
+    pub fn new(max_capacity_per_subscription: usize) -> Self {
         Self {
             requests: HashMap::new(),
             subscriptions: HashMap::new(),
+            max_capacity_per_subscription,
         }
     }
 

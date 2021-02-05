@@ -95,11 +95,6 @@ impl HttpClientBuilder {
     /// Set a timeout for only the connect phase of a `Client`.
     ///
     /// Default is `None`.
-    ///
-    /// # Note
-    ///
-    /// This **requires** the futures be executed in a tokio runtime with
-    /// a tokio timer enabled.
     pub fn connect_timeout(mut self, timeout: Duration) -> Self {
         self.connect_timeout = Some(timeout);
         self

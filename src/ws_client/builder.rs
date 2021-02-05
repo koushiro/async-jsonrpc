@@ -14,6 +14,8 @@ use crate::{
 pub struct WsClientBuilder {
     headers: HeaderMap,
     timeout: Option<Duration>,
+    max_concurrent_request_capacity: usize,
+    max_capacity_per_subscription: usize,
 }
 
 impl Default for WsClientBuilder {
@@ -30,6 +32,8 @@ impl WsClientBuilder {
         Self {
             headers: HeaderMap::new(),
             timeout: None,
+            max_concurrent_request_capacity: 256,
+            max_capacity_per_subscription: 64,
         }
     }
 
@@ -77,6 +81,26 @@ impl WsClientBuilder {
     }
 
     // ========================================================================
+    // Channel options
+    // ========================================================================
+
+    /// Sets the max channel capacity of sending request concurrently.
+    ///
+    /// Default is 256.
+    pub fn max_concurrent_request_capacity(mut self, capacity: usize) -> Self {
+        self.max_concurrent_request_capacity = capacity;
+        self
+    }
+
+    /// Sets the max channel capacity of every subscription stream.
+    ///
+    /// Default is 64.
+    pub fn max_capacity_per_subscription(mut self, capacity: usize) -> Self {
+        self.max_capacity_per_subscription = capacity;
+        self
+    }
+
+    // ========================================================================
     // Timeout options
     // ========================================================================
 
@@ -101,9 +125,8 @@ impl WsClientBuilder {
         headers.extend(self.headers);
         let handshake_req = handshake_builder.body(()).map_err(WsError::HttpFormat)?;
 
-        let task = WsTask::handshake(handshake_req).await?;
-
-        let (to_back, from_front) = mpsc::channel(256);
+        let (to_back, from_front) = mpsc::channel(self.max_concurrent_request_capacity);
+        let task = WsTask::handshake(handshake_req, self.max_capacity_per_subscription).await?;
         #[cfg(feature = "ws-async-std")]
         let _handle = async_std::task::spawn(task.into_task(from_front));
         #[cfg(feature = "ws-tokio")]

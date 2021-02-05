@@ -120,7 +120,10 @@ pub(crate) struct WsTask {
 
 impl WsTask {
     /// Setup websocket connection.
-    pub(crate) async fn handshake(request: HandShakeRequest) -> Result<Self, WsError> {
+    pub(crate) async fn handshake(
+        request: HandShakeRequest,
+        max_capacity_per_subscription: usize,
+    ) -> Result<Self, WsError> {
         let uri = request.uri().clone();
         log::debug!("WebSocket handshake {}, request: {:?}", uri, request);
         let (ws_stream, response) = connect_async(request).await?;
@@ -129,7 +132,7 @@ impl WsTask {
         Ok(Self {
             sender: WsSender::new(sink),
             receiver: WsReceiver::new(stream),
-            manager: TaskManager::new(),
+            manager: TaskManager::new(max_capacity_per_subscription),
         })
     }
 
@@ -321,7 +324,7 @@ fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(),
                 }
             };
 
-            let (subscribe_tx, subscribe_rx) = mpsc::channel(256);
+            let (subscribe_tx, subscribe_rx) = mpsc::channel(manager.max_capacity_per_subscription);
             if manager
                 .insert_active_subscription(response_id, subscription_id.clone(), subscribe_tx, unsubscribe_method)
                 .is_ok()
