@@ -1,6 +1,6 @@
 [package]
 name = "async-jsonrpc-client"
-version = "0.2.0-dev"
+version = "0.2.0-pre.0"
 authors = ["koushiro <koushiro.cqx@gmail.com>"]
 edition = "2018"
 readme = "README.md"
