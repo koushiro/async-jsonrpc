@@ -291,7 +291,6 @@ fn handle_response_message(response: Response, manager: &mut TaskManager) -> Res
 
 fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(), ClientError> {
     let response_id = response_id_of(&output)?;
-    log::debug!("handle_single_output, {:?}, id:{}", manager, response_id);
     match manager.request_status(&response_id) {
         RequestStatus::PendingMethodCall => {
             log::debug!("[backend] Handle single response of method call: id={}", response_id);

@@ -126,7 +126,9 @@ impl WsClientBuilder {
         let handshake_req = handshake_builder.body(()).map_err(WsError::HttpFormat)?;
 
         let (to_back, from_front) = mpsc::channel(self.max_concurrent_request_capacity);
+        log::info!("Connecting '{}' ...", url);
         let task = WsTask::handshake(handshake_req, self.max_capacity_per_subscription).await?;
+        log::info!("Connect '{}' successfully", url);
         #[cfg(feature = "ws-async-std")]
         let _handle = async_std::task::spawn(task.into_task(from_front));
         #[cfg(feature = "ws-tokio")]

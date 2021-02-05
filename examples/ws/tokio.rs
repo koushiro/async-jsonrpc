@@ -18,6 +18,15 @@ async fn main() -> Result<(), ClientError> {
         .subscribe("chain_subscribeNewHead", "chain_unsubscribeNewHead", None)
         .await?;
     log::info!("Subscription ID: {}", id);
+
+    /*
+    let client_clone = client.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+        let _ = client_clone.unsubscribe("chain_unsubscribeNewHead", id).await;
+    });
+    */
+
     while let Some(notification) = rx.next().await {
         log::info!("Subscription Notification: {}", notification);
     }
