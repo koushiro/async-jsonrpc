@@ -273,7 +273,7 @@ async fn handle_from_back_message(
             log::debug!("[backend] Send `Pong` message back, message: {:?}", msg);
             sender.send_message(Message::Pong(msg)).await?;
         }
-        Message::Pong(msg) => log::warn!("[backend] Ignore `Pong` message: {:?}", msg),
+        Message::Pong(msg) => log::debug!("[backend] Receive `Pong` message: {:?}", msg),
         Message::Close(msg) => {
             log::error!("[backend] Receive `Close` message: {:?}; terminate client", msg);
             return Err(WsClientError::WebSocket(WsError::ConnectionClosed));
