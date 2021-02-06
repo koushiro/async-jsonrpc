@@ -6,7 +6,7 @@ use std::{
 
 use http::header::{self, HeaderMap, HeaderName, HeaderValue};
 
-use crate::{error::Result, http_client::HttpClient};
+use crate::{error::HttpClientError, http_client::HttpClient};
 
 /// A `HttpClientBuilder` can be used to create a `HttpClient` with  custom configuration.
 #[derive(Debug)]
@@ -105,7 +105,7 @@ impl HttpClientBuilder {
 
     /// Returns a `HttpClient` that uses this `HttpClientBuilder` configuration.
     #[cfg(feature = "http-async-std")]
-    pub fn build<U: Into<String>>(self, url: U) -> Result<HttpClient> {
+    pub fn build<U: Into<String>>(self, url: U) -> Result<HttpClient, HttpClientError> {
         Ok(HttpClient {
             url: url.into(),
             id: Arc::new(AtomicU64::new(1)),
@@ -117,7 +117,7 @@ impl HttpClientBuilder {
 
     /// Returns a `HttpClient` that uses this `HttpClientBuilder` configuration.
     #[cfg(feature = "http-tokio")]
-    pub fn build<U: Into<String>>(self, url: U) -> Result<HttpClient> {
+    pub fn build<U: Into<String>>(self, url: U) -> Result<HttpClient, HttpClientError> {
         let builder = reqwest::Client::builder().default_headers(self.headers);
         let builder = if let Some(timeout) = self.timeout {
             builder.timeout(timeout)

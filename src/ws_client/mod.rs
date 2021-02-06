@@ -20,7 +20,7 @@ use jsonrpc_types::*;
 
 pub use self::builder::WsClientBuilder;
 use crate::{
-    error::{ClientError, Result},
+    error::WsClientError,
     transport::{BatchTransport, PubsubTransport, Transport},
 };
 
@@ -30,12 +30,12 @@ pub(crate) enum ToBackTaskMessage {
         method: String,
         params: Option<Params>,
         /// One-shot channel where to send back the response of the request.
-        send_back: oneshot::Sender<Result<Output>>,
+        send_back: oneshot::Sender<Result<Output, WsClientError>>,
     },
     BatchRequest {
         batch: Vec<(String, Option<Params>)>,
         /// One-shot channel where to send back the response of the batch request.
-        send_back: oneshot::Sender<Result<Vec<Output>>>,
+        send_back: oneshot::Sender<Result<Vec<Output>, WsClientError>>,
     },
     Subscribe {
         subscribe_method: String,
@@ -44,7 +44,7 @@ pub(crate) enum ToBackTaskMessage {
         /// One-shot channel where to send back the response (subscription id) and a `Receiver`
         /// that will receive subscription notification when we get a response (subscription id)
         /// from the server about the subscription.
-        send_back: oneshot::Sender<Result<(Id, mpsc::Receiver<SubscriptionNotification>)>>,
+        send_back: oneshot::Sender<Result<(Id, mpsc::Receiver<SubscriptionNotification>), WsClientError>>,
     },
     /// When a subscription channel is closed, we send this message to the backend task to clean
     /// the subscription.
@@ -61,8 +61,11 @@ pub struct WsClient {
 
 impl WsClient {
     /// Creates a new WebSocket JSON-RPC client.
-    pub async fn new(url: impl Into<String>) -> Result<Self> {
-        WsClientBuilder::new().build(url).await.map_err(ClientError::WebSocket)
+    pub async fn new(url: impl Into<String>) -> Result<Self, WsClientError> {
+        WsClientBuilder::new()
+            .build(url)
+            .await
+            .map_err(WsClientError::WebSocket)
     }
 
     /// Creates a `WsClientBuilder` to configure a `WsClient`.
@@ -73,7 +76,7 @@ impl WsClient {
     }
 
     /// Sends a `method call` request to the server.
-    async fn send_request(&self, method: impl Into<String>, params: Option<Params>) -> Result<Output> {
+    async fn send_request(&self, method: impl Into<String>, params: Option<Params>) -> Result<Output, WsClientError> {
         let method = method.into();
         log::debug!("[frontend] Send request: method={}, params={:?}", method, params);
 
@@ -86,7 +89,7 @@ impl WsClient {
                 send_back: tx,
             })
             .await
-            .map_err(|_| ClientError::InternalChannel)?;
+            .map_err(|_| WsClientError::InternalChannel)?;
 
         let res = if let Some(duration) = self.timeout {
             #[cfg(feature = "ws-async-std")]
@@ -96,7 +99,7 @@ impl WsClient {
             futures::pin_mut!(rx, timeout);
             match future::select(rx, timeout).await {
                 future::Either::Left((response, _)) => response,
-                future::Either::Right((_, _)) => return Err(ClientError::WsRequestTimeout),
+                future::Either::Right((_, _)) => return Err(WsClientError::RequestTimeout),
             }
         } else {
             rx.await
@@ -104,12 +107,12 @@ impl WsClient {
         match res {
             Ok(Ok(output)) => Ok(output),
             Ok(Err(err)) => Err(err),
-            Err(_) => Err(ClientError::InternalChannel),
+            Err(_) => Err(WsClientError::InternalChannel),
         }
     }
 
     /// Sends a batch of `method call` requests to the server.
-    async fn send_request_batch<I, M>(&self, batch: I) -> Result<Vec<Output>>
+    async fn send_request_batch<I, M>(&self, batch: I) -> Result<Vec<Output>, WsClientError>
     where
         I: IntoIterator<Item = (M, Option<Params>)>,
         M: Into<String>,
@@ -125,7 +128,7 @@ impl WsClient {
             .clone()
             .send(ToBackTaskMessage::BatchRequest { batch, send_back: tx })
             .await
-            .map_err(|_| ClientError::InternalChannel)?;
+            .map_err(|_| WsClientError::InternalChannel)?;
 
         let res = if let Some(duration) = self.timeout {
             #[cfg(feature = "ws-async-std")]
@@ -135,7 +138,7 @@ impl WsClient {
             futures::pin_mut!(rx, timeout);
             match future::select(rx, timeout).await {
                 future::Either::Left((response, _)) => response,
-                future::Either::Right((_, _)) => return Err(ClientError::WsRequestTimeout),
+                future::Either::Right((_, _)) => return Err(WsClientError::RequestTimeout),
             }
         } else {
             rx.await
@@ -143,7 +146,7 @@ impl WsClient {
         match res {
             Ok(Ok(outputs)) => Ok(outputs),
             Ok(Err(err)) => Err(err),
-            Err(_) => Err(ClientError::InternalChannel),
+            Err(_) => Err(WsClientError::InternalChannel),
         }
     }
 
@@ -156,7 +159,7 @@ impl WsClient {
         subscribe_method: impl Into<String>,
         unsubscribe_method: impl Into<String>,
         params: Option<Params>,
-    ) -> Result<WsSubscription<SubscriptionNotification>> {
+    ) -> Result<WsSubscription<SubscriptionNotification>, WsClientError> {
         let subscribe_method = subscribe_method.into();
         let unsubscribe_method = unsubscribe_method.into();
         log::debug!(
@@ -175,7 +178,7 @@ impl WsClient {
                 send_back: tx,
             })
             .await
-            .map_err(|_| ClientError::InternalChannel)?;
+            .map_err(|_| WsClientError::InternalChannel)?;
 
         let res = if let Some(duration) = self.timeout {
             #[cfg(feature = "ws-async-std")]
@@ -185,7 +188,7 @@ impl WsClient {
             futures::pin_mut!(rx, timeout);
             match future::select(rx, timeout).await {
                 future::Either::Left((response, _)) => response,
-                future::Either::Right((_, _)) => return Err(ClientError::WsRequestTimeout),
+                future::Either::Right((_, _)) => return Err(WsClientError::RequestTimeout),
             }
         } else {
             rx.await
@@ -197,12 +200,16 @@ impl WsClient {
                 to_back: self.to_back.clone(),
             }),
             Ok(Err(err)) => Err(err),
-            Err(_) => Err(ClientError::InternalChannel),
+            Err(_) => Err(WsClientError::InternalChannel),
         }
     }
 
     /// Sends a unsubscribe request to the server.
-    async fn send_unsubscribe(&self, unsubscribe_method: impl Into<String>, subscription_id: Id) -> Result<Output> {
+    async fn send_unsubscribe(
+        &self,
+        unsubscribe_method: impl Into<String>,
+        subscription_id: Id,
+    ) -> Result<Output, WsClientError> {
         let subscription_id = serde_json::to_value(subscription_id)?;
         let params = Params::Array(vec![subscription_id]);
         self.send_request(unsubscribe_method, Some(params)).await
@@ -248,7 +255,9 @@ impl<Notif> Drop for WsSubscription<Notif> {
 
 #[async_trait::async_trait]
 impl Transport for WsClient {
-    async fn request<M>(&self, method: M, params: Option<Params>) -> Result<Output>
+    type Error = WsClientError;
+
+    async fn request<M>(&self, method: M, params: Option<Params>) -> Result<Output, Self::Error>
     where
         M: Into<String> + Send,
     {
@@ -258,7 +267,7 @@ impl Transport for WsClient {
 
 #[async_trait::async_trait]
 impl BatchTransport for WsClient {
-    async fn request_batch<I, M>(&self, batch: I) -> Result<Vec<Output>>
+    async fn request_batch<I, M>(&self, batch: I) -> Result<Vec<Output>, <Self as Transport>::Error>
     where
         I: IntoIterator<Item = (M, Option<Params>)> + Send,
         I::IntoIter: Send,
@@ -272,14 +281,15 @@ impl BatchTransport for WsClient {
 impl PubsubTransport for WsClient {
     type NotificationStream = WsSubscription<SubscriptionNotification>;
 
-    async fn subscribe<M>(
+    async fn subscribe<M1, M2>(
         &self,
-        subscribe_method: M,
-        unsubscribe_method: M,
+        subscribe_method: M1,
+        unsubscribe_method: M2,
         params: Option<Params>,
-    ) -> Result<(Id, Self::NotificationStream)>
+    ) -> Result<(Id, Self::NotificationStream), <Self as Transport>::Error>
     where
-        M: Into<String> + Send,
+        M1: Into<String> + Send,
+        M2: Into<String> + Send,
     {
         let notification_stream = self
             .send_subscribe(subscribe_method, unsubscribe_method, params)
@@ -287,7 +297,11 @@ impl PubsubTransport for WsClient {
         Ok((notification_stream.id.clone(), notification_stream))
     }
 
-    async fn unsubscribe<M>(&self, unsubscribe_method: M, subscription_id: Id) -> Result<bool>
+    async fn unsubscribe<M>(
+        &self,
+        unsubscribe_method: M,
+        subscription_id: Id,
+    ) -> Result<bool, <Self as Transport>::Error>
     where
         M: Into<String> + Send,
     {

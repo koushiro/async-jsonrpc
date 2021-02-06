@@ -1,7 +1,7 @@
-use async_jsonrpc_client::{BatchTransport, ClientError, PubsubTransport, Response, Transport, WsClient};
+use async_jsonrpc_client::{BatchTransport, PubsubTransport, Response, Transport, WsClient, WsClientError};
 
 #[tokio::main]
-async fn main() -> Result<(), ClientError> {
+async fn main() -> Result<(), WsClientError> {
     env_logger::init();
 
     let client = WsClient::new("wss://rpc.polkadot.io").await?;

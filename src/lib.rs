@@ -10,17 +10,17 @@ mod http_client;
 #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
 mod ws_client;
 
-pub use self::{
-    error::ClientError,
-    transport::{BatchTransport, PubsubTransport, Transport},
-};
+pub use self::transport::{BatchTransport, PubsubTransport, Transport};
 
 #[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
-pub use self::http_client::{HttpClient, HttpClientBuilder};
+pub use self::{
+    error::HttpClientError,
+    http_client::{HttpClient, HttpClientBuilder},
+};
 #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
 pub use self::{
-    error::WsError,
-    ws_client::{WsClient, WsClientBuilder},
+    error::{WsClientError, WsError},
+    ws_client::{WsClient, WsClientBuilder, WsSubscription},
 };
 
 pub use http::header::{self, HeaderName, HeaderValue};

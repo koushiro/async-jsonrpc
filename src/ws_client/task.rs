@@ -14,7 +14,7 @@ use futures::{
 use jsonrpc_types::*;
 
 use crate::{
-    error::{ClientError, WsError},
+    error::{WsClientError, WsError},
     ws_client::{
         manager::{RequestStatus, TaskManager},
         ToBackTaskMessage,
@@ -189,14 +189,14 @@ async fn handle_from_front_message(msg: ToBackTaskMessage, manager: &mut TaskMan
             Ok(req_id) => {
                 if let Err(send_back) = manager.insert_pending_method_call(req_id, send_back) {
                     send_back
-                        .send(Err(ClientError::DuplicateRequestId))
+                        .send(Err(WsClientError::DuplicateRequestId))
                         .expect("Send request error back");
                 }
             }
             Err(err) => {
                 log::warn!("[backend] Send request error: {}", err);
                 send_back
-                    .send(Err(ClientError::WebSocket(err)))
+                    .send(Err(WsClientError::WebSocket(err)))
                     .expect("Send request error back");
             }
         },
@@ -205,14 +205,14 @@ async fn handle_from_front_message(msg: ToBackTaskMessage, manager: &mut TaskMan
                 let min_request_id = req_ids.into_iter().min().expect("must have one");
                 if let Err(send_back) = manager.insert_pending_batch_method_call(min_request_id, send_back) {
                     send_back
-                        .send(Err(ClientError::DuplicateRequestId))
+                        .send(Err(WsClientError::DuplicateRequestId))
                         .expect("Send batch request error back");
                 }
             }
             Err(err) => {
                 log::warn!("[backend] Send a batch of requests error: {}", err);
                 send_back
-                    .send(Err(ClientError::WebSocket(err)))
+                    .send(Err(WsClientError::WebSocket(err)))
                     .expect("Send batch request error back");
             }
         },
@@ -225,14 +225,14 @@ async fn handle_from_front_message(msg: ToBackTaskMessage, manager: &mut TaskMan
             Ok(req_id) => {
                 if let Err(send_back) = manager.insert_pending_subscription(req_id, send_back, unsubscribe_method) {
                     send_back
-                        .send(Err(ClientError::DuplicateRequestId))
+                        .send(Err(WsClientError::DuplicateRequestId))
                         .expect("Send subscription request error back");
                 }
             }
             Err(err) => {
                 log::warn!("[backend] Send subscription request error: {}", err);
                 send_back
-                    .send(Err(ClientError::WebSocket(err)))
+                    .send(Err(WsClientError::WebSocket(err)))
                     .expect("Send subscription request error back");
             }
         },
@@ -256,7 +256,7 @@ async fn handle_from_back_message(
     msg: Message,
     manager: &mut TaskManager,
     sender: &mut WsSender,
-) -> Result<(), ClientError> {
+) -> Result<(), WsClientError> {
     match msg {
         Message::Text(msg) => {
             if let Ok(response) = serde_json::from_str::<Response>(&msg) {
@@ -276,27 +276,27 @@ async fn handle_from_back_message(
         Message::Pong(msg) => log::warn!("[backend] Ignore `Pong` message: {:?}", msg),
         Message::Close(msg) => {
             log::error!("[backend] Receive `Close` message: {:?}; terminate client", msg);
-            return Err(ClientError::WebSocket(WsError::ConnectionClosed));
+            return Err(WsClientError::WebSocket(WsError::ConnectionClosed));
         }
     }
     Ok(())
 }
 
-fn handle_response_message(response: Response, manager: &mut TaskManager) -> Result<(), ClientError> {
+fn handle_response_message(response: Response, manager: &mut TaskManager) -> Result<(), WsClientError> {
     match response {
         Response::Single(output) => handle_single_output(output, manager),
         Response::Batch(outputs) => handle_batch_output(outputs, manager),
     }
 }
 
-fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(), ClientError> {
+fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(), WsClientError> {
     let response_id = response_id_of(&output)?;
     match manager.request_status(&response_id) {
         RequestStatus::PendingMethodCall => {
             log::debug!("[backend] Handle single response of method call: id={}", response_id);
             let send_back = manager
                 .complete_pending_method_call(response_id)
-                .ok_or(ClientError::InvalidRequestId)?;
+                .ok_or(WsClientError::InvalidRequestId)?;
             send_back.send(Ok(output)).expect("Send single response back");
             Ok(())
         }
@@ -304,20 +304,20 @@ fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(),
             log::debug!("[backend] Handle response of subscription request: id={}", response_id);
             let (send_back, unsubscribe_method) = manager
                 .complete_pending_subscription(response_id)
-                .ok_or(ClientError::InvalidRequestId)?;
+                .ok_or(WsClientError::InvalidRequestId)?;
             let subscription_id = match output {
                 Output::Success(success) => match serde_json::from_value::<Id>(success.result) {
                     Ok(id) => id,
                     Err(err) => {
                         send_back
-                            .send(Err(ClientError::Json(err)))
+                            .send(Err(WsClientError::Json(err)))
                             .expect("Send response error back");
                         return Ok(());
                     }
                 },
                 Output::Failure(_) => {
                     send_back
-                        .send(Err(ClientError::InvalidSubscriptionId))
+                        .send(Err(WsClientError::InvalidSubscriptionId))
                         .expect("Send response error back");
                     return Ok(());
                 }
@@ -334,26 +334,26 @@ fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(),
                 Ok(())
             } else {
                 send_back
-                    .send(Err(ClientError::InvalidSubscriptionId))
+                    .send(Err(WsClientError::InvalidSubscriptionId))
                     .expect("Send subscription error back");
                 Ok(())
             }
         }
         RequestStatus::ActiveSubscription | RequestStatus::PendingBatchMethodCall | RequestStatus::Invalid => {
-            Err(ClientError::InvalidRequestId)
+            Err(WsClientError::InvalidRequestId)
         }
     }
 }
 
-fn response_id_of(output: &Output) -> Result<u64, ClientError> {
+fn response_id_of(output: &Output) -> Result<u64, WsClientError> {
     Ok(*output
         .id()
-        .ok_or(ClientError::InvalidRequestId)?
+        .ok_or(WsClientError::InvalidRequestId)?
         .as_number()
         .expect("Response ID must be number"))
 }
 
-fn handle_batch_output(outputs: Vec<Output>, manager: &mut TaskManager) -> Result<(), ClientError> {
+fn handle_batch_output(outputs: Vec<Output>, manager: &mut TaskManager) -> Result<(), WsClientError> {
     let (min_response_id, max_response_id) = response_id_range_of(&outputs)?;
     // use the min id of batch request for managing task
     match manager.request_status(&min_response_id) {
@@ -365,24 +365,24 @@ fn handle_batch_output(outputs: Vec<Output>, manager: &mut TaskManager) -> Resul
             );
             let send_back = manager
                 .complete_pending_batch_method_call(min_response_id)
-                .ok_or(ClientError::InvalidRequestId)?;
+                .ok_or(WsClientError::InvalidRequestId)?;
             send_back.send(Ok(outputs)).expect("Send batch response back");
             Ok(())
         }
         RequestStatus::PendingMethodCall
         | RequestStatus::PendingSubscription
         | RequestStatus::ActiveSubscription
-        | RequestStatus::Invalid => Err(ClientError::InvalidRequestId),
+        | RequestStatus::Invalid => Err(WsClientError::InvalidRequestId),
     }
 }
 
-fn response_id_range_of(outputs: &[Output]) -> Result<(u64, u64), ClientError> {
+fn response_id_range_of(outputs: &[Output]) -> Result<(u64, u64), WsClientError> {
     assert!(!outputs.is_empty());
     let (mut min, mut max) = (u64::max_value(), u64::min_value());
     for output in outputs {
         let id = *output
             .id()
-            .ok_or(ClientError::InvalidRequestId)?
+            .ok_or(WsClientError::InvalidRequestId)?
             .as_number()
             .expect("Response ID must be number");
         min = std::cmp::min(id, min);
