@@ -45,6 +45,9 @@ pub enum WsClientError {
     /// Invalid Subscription ID.
     #[error("Invalid subscription ID")]
     InvalidSubscriptionId,
+    /// Invalid Unsubscribe request result.
+    #[error("Invalid Unsubscribe result")]
+    InvalidUnsubscribeResult,
     /// Internal channel error
     #[error("Internal channel error")]
     InternalChannel,

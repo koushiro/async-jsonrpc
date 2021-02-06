@@ -12,7 +12,7 @@ use std::{
 
 use futures::{
     channel::{mpsc, oneshot},
-    future::{self, FutureExt},
+    future,
     sink::SinkExt,
     stream::{Stream, StreamExt},
 };
@@ -39,12 +39,17 @@ pub(crate) enum ToBackTaskMessage {
     },
     Subscribe {
         subscribe_method: String,
-        unsubscribe_method: String,
         params: Option<Params>,
         /// One-shot channel where to send back the response (subscription id) and a `Receiver`
         /// that will receive subscription notification when we get a response (subscription id)
         /// from the server about the subscription.
         send_back: oneshot::Sender<Result<(Id, mpsc::Receiver<SubscriptionNotification>), WsClientError>>,
+    },
+    Unsubscribe {
+        unsubscribe_method: String,
+        subscription_id: Id,
+        /// One-shot channel where to send back the response of the batch request.
+        send_back: oneshot::Sender<Result<bool, WsClientError>>,
     },
     /// When a subscription channel is closed, we send this message to the backend task to clean
     /// the subscription.
@@ -157,23 +162,15 @@ impl WsClient {
     async fn send_subscribe(
         &self,
         subscribe_method: impl Into<String>,
-        unsubscribe_method: impl Into<String>,
         params: Option<Params>,
     ) -> Result<WsSubscription<SubscriptionNotification>, WsClientError> {
         let subscribe_method = subscribe_method.into();
-        let unsubscribe_method = unsubscribe_method.into();
-        log::debug!(
-            "[frontend] Subscribe: method={}/{}, params={:?}",
-            subscribe_method,
-            unsubscribe_method,
-            params
-        );
+        log::debug!("[frontend] Subscribe: method={}, params={:?}", subscribe_method, params);
         let (tx, rx) = oneshot::channel();
         self.to_back
             .clone()
             .send(ToBackTaskMessage::Subscribe {
                 subscribe_method,
-                unsubscribe_method,
                 params,
                 send_back: tx,
             })
@@ -204,15 +201,48 @@ impl WsClient {
         }
     }
 
-    /// Sends a unsubscribe request to the server.
+    /// Sends an unsubscribe request to the server.
     async fn send_unsubscribe(
         &self,
         unsubscribe_method: impl Into<String>,
         subscription_id: Id,
-    ) -> Result<Output, WsClientError> {
-        let subscription_id = serde_json::to_value(subscription_id)?;
-        let params = Params::Array(vec![subscription_id]);
-        self.send_request(unsubscribe_method, Some(params)).await
+    ) -> Result<bool, WsClientError> {
+        let unsubscribe_method = unsubscribe_method.into();
+        log::debug!(
+            "[frontend] unsubscribe: method={}, id={:?}",
+            unsubscribe_method,
+            subscription_id
+        );
+        let (tx, rx) = oneshot::channel();
+        self.to_back
+            .clone()
+            .send(ToBackTaskMessage::Unsubscribe {
+                unsubscribe_method,
+                subscription_id,
+                send_back: tx,
+            })
+            .await
+            .map_err(|_| WsClientError::InternalChannel)?;
+
+        let res = if let Some(duration) = self.timeout {
+            #[cfg(feature = "ws-async-std")]
+            let timeout = async_std::task::sleep(duration);
+            #[cfg(feature = "ws-tokio")]
+            let timeout = tokio::time::sleep(duration);
+            futures::pin_mut!(rx, timeout);
+            match future::select(rx, timeout).await {
+                future::Either::Left((response, _)) => response,
+                future::Either::Right((_, _)) => return Err(WsClientError::RequestTimeout),
+            }
+        } else {
+            rx.await
+        };
+
+        match res {
+            Ok(Ok(res)) => Ok(res),
+            Ok(Err(err)) => Err(err),
+            Err(_) => Err(WsClientError::InternalChannel),
+        }
     }
 }
 
@@ -245,7 +275,9 @@ impl<Notif> Stream for WsSubscription<Notif> {
 
 impl<Notif> Drop for WsSubscription<Notif> {
     fn drop(&mut self) {
+        use futures::future::FutureExt;
         let id = std::mem::replace(&mut self.id, Id::Num(0));
+        log::debug!("[frontend] Dropping the subscription stream, id={}", id);
         let _ = self
             .to_back
             .send(ToBackTaskMessage::SubscriptionClosed(id))
@@ -281,19 +313,15 @@ impl BatchTransport for WsClient {
 impl PubsubTransport for WsClient {
     type NotificationStream = WsSubscription<SubscriptionNotification>;
 
-    async fn subscribe<M1, M2>(
+    async fn subscribe<M>(
         &self,
-        subscribe_method: M1,
-        unsubscribe_method: M2,
+        subscribe_method: M,
         params: Option<Params>,
     ) -> Result<(Id, Self::NotificationStream), <Self as Transport>::Error>
     where
-        M1: Into<String> + Send,
-        M2: Into<String> + Send,
+        M: Into<String> + Send,
     {
-        let notification_stream = self
-            .send_subscribe(subscribe_method, unsubscribe_method, params)
-            .await?;
+        let notification_stream = self.send_subscribe(subscribe_method, params).await?;
         Ok((notification_stream.id.clone(), notification_stream))
     }
 
@@ -305,13 +333,6 @@ impl PubsubTransport for WsClient {
     where
         M: Into<String> + Send,
     {
-        let output = self.send_unsubscribe(unsubscribe_method, subscription_id).await?;
-        match output {
-            Output::Success(Success { result, .. }) => Ok(serde_json::from_value::<bool>(result)?),
-            Output::Failure(failure) => {
-                log::warn!("Unexpected unsubscribe response: {}", failure);
-                Ok(false)
-            }
-        }
+        self.send_unsubscribe(unsubscribe_method, subscription_id).await
     }
 }

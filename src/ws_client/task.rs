@@ -218,12 +218,11 @@ async fn handle_from_front_message(msg: ToBackTaskMessage, manager: &mut TaskMan
         },
         ToBackTaskMessage::Subscribe {
             subscribe_method,
-            unsubscribe_method,
             params,
             send_back,
         } => match sender.start_subscription(subscribe_method, params).await {
             Ok(req_id) => {
-                if let Err(send_back) = manager.insert_pending_subscription(req_id, send_back, unsubscribe_method) {
+                if let Err(send_back) = manager.insert_pending_subscription(req_id, send_back) {
                     send_back
                         .send(Err(WsClientError::DuplicateRequestId))
                         .expect("Send subscription request error back");
@@ -236,17 +235,35 @@ async fn handle_from_front_message(msg: ToBackTaskMessage, manager: &mut TaskMan
                     .expect("Send subscription request error back");
             }
         },
+        ToBackTaskMessage::Unsubscribe {
+            unsubscribe_method,
+            subscription_id,
+            send_back,
+        } => {
+            match sender
+                .stop_subscription(unsubscribe_method, subscription_id.clone())
+                .await
+            {
+                Ok(req_id) => {
+                    if let Err(send_back) = manager.insert_pending_unsubscribe(req_id, subscription_id, send_back) {
+                        send_back
+                            .send(Err(WsClientError::DuplicateRequestId))
+                            .expect("Send unsubscribe request error back");
+                    }
+                }
+                Err(err) => {
+                    log::warn!("[backend] Send unsubscribe request error: {}", err);
+                    send_back
+                        .send(Err(WsClientError::WebSocket(err)))
+                        .expect("Send unsubscribe request error back");
+                }
+            }
+        },
         ToBackTaskMessage::SubscriptionClosed(subscription_id) => {
             log::debug!("[backend] Close subscription: id={:?}", subscription_id);
             // NOTE: The subscription may have been closed earlier if the channel was full or disconnected.
             if let Some(request_id) = manager.get_request_id_by(&subscription_id) {
-                if let Some((_sink, unsubscribe_method)) =
-                    manager.remove_active_subscription(request_id, subscription_id.clone())
-                {
-                    if let Err(err) = sender.stop_subscription(unsubscribe_method, subscription_id).await {
-                        log::error!("[backend] Send unsubscription error: {}", err);
-                    }
-                }
+                manager.remove_active_subscription(request_id, subscription_id.clone());
             }
         }
     }
@@ -302,7 +319,7 @@ fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(),
         }
         RequestStatus::PendingSubscription => {
             log::debug!("[backend] Handle response of subscription request: id={}", response_id);
-            let (send_back, unsubscribe_method) = manager
+            let send_back = manager
                 .complete_pending_subscription(response_id)
                 .ok_or(WsClientError::InvalidRequestId)?;
             let subscription_id = match output {
@@ -325,7 +342,7 @@ fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(),
 
             let (subscribe_tx, subscribe_rx) = mpsc::channel(manager.max_capacity_per_subscription);
             if manager
-                .insert_active_subscription(response_id, subscription_id.clone(), subscribe_tx, unsubscribe_method)
+                .insert_active_subscription(response_id, subscription_id.clone(), subscribe_tx)
                 .is_ok()
             {
                 send_back
@@ -338,6 +355,49 @@ fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(),
                     .expect("Send subscription error back");
                 Ok(())
             }
+        }
+        RequestStatus::PendingUnsubscribe => {
+            log::debug!(
+                "[backend] Handle single response of unsubscribe request: id={}",
+                response_id
+            );
+            let (subscription_id, send_back) = manager
+                .complete_pending_unsubscribe(response_id)
+                .ok_or(WsClientError::InvalidRequestId)?;
+            let result = match output {
+                Output::Success(success) => match serde_json::from_value::<bool>(success.result) {
+                    Ok(result) => result,
+                    Err(err) => {
+                        send_back
+                            .send(Err(WsClientError::Json(err)))
+                            .expect("Send response error back");
+                        return Ok(());
+                    }
+                },
+                Output::Failure(failure) => {
+                    log::warn!("[backend] Unexpected response of unsubscribe request: {}", failure);
+                    send_back
+                        .send(Err(WsClientError::InvalidUnsubscribeResult))
+                        .expect("Send response error back");
+                    return Ok(());
+                }
+            };
+
+            send_back.send(Ok(result)).expect("Send single response back");
+
+            if result {
+                // clean the subscription of manager according to the subscription id when unsubscribe successfully.
+                if let Some(request_id) = manager.get_request_id_by(&subscription_id) {
+                    manager.remove_active_subscription(request_id, subscription_id);
+                } else {
+                    log::error!(
+                        "[backend] Task manager cannot find subscription: id={:?}",
+                        subscription_id
+                    );
+                }
+            }
+
+            Ok(())
         }
         RequestStatus::ActiveSubscription | RequestStatus::PendingBatchMethodCall | RequestStatus::Invalid => {
             Err(WsClientError::InvalidRequestId)
@@ -372,6 +432,7 @@ fn handle_batch_output(outputs: Vec<Output>, manager: &mut TaskManager) -> Resul
         RequestStatus::PendingMethodCall
         | RequestStatus::PendingSubscription
         | RequestStatus::ActiveSubscription
+        | RequestStatus::PendingUnsubscribe
         | RequestStatus::Invalid => Err(WsClientError::InvalidRequestId),
     }
 }
