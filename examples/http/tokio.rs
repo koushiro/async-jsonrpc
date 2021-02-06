@@ -1,7 +1,7 @@
-use async_jsonrpc_client::{BatchTransport, ClientError, HttpClient, Response, Transport};
+use async_jsonrpc_client::{BatchTransport, HttpClient, HttpClientError, Response, Transport};
 
 #[tokio::main]
-async fn main() -> Result<(), ClientError> {
+async fn main() -> Result<(), HttpClientError> {
     env_logger::init();
 
     let client = HttpClient::new("https://rpc.polkadot.io")?;
