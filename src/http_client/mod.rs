@@ -16,7 +16,7 @@ use crate::{
     transport::{BatchTransport, Transport},
 };
 
-/// HTTP transport
+/// HTTP JSON-RPC client
 #[cfg(feature = "http-async-std")]
 #[derive(Clone)]
 pub struct HttpClient {
@@ -27,7 +27,7 @@ pub struct HttpClient {
     timeout: Option<std::time::Duration>,
 }
 
-/// HTTP transport
+/// HTTP JSON-RPC client
 #[cfg(feature = "http-tokio")]
 #[derive(Clone)]
 pub struct HttpClient {
@@ -37,7 +37,7 @@ pub struct HttpClient {
 }
 
 impl HttpClient {
-    /// Creates a new HTTP transport with given `url`.
+    /// Creates a new HTTP JSON-RPC client with given `url`.
     pub fn new<U: Into<String>>(url: U) -> Result<Self> {
         HttpClientBuilder::new().build(url)
     }
