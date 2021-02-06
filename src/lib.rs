@@ -24,4 +24,4 @@ pub use self::{
 };
 
 pub use http::header::{self, HeaderName, HeaderValue};
-pub use jsonrpc_types::*;
+pub use jsonrpc_types::v2::*;
