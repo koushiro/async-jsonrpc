@@ -128,7 +128,7 @@ async fn dispatch_fn(req: hyper::Request<hyper::Body>) -> hyper::Result<hyper::R
 async fn make_jsonrpc_request() {
     use hyper::service::{make_service_fn, service_fn};
 
-    let addr = "127.0.0.1:8080";
+    let addr = "127.0.0.1:8081";
     let service = make_service_fn(|_| async { Ok::<_, hyper::Error>(service_fn(dispatch_fn)) });
     let server = hyper::Server::bind(&addr.parse().unwrap()).serve(service);
     tokio::spawn(server);
