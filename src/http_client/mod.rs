@@ -17,6 +17,18 @@ use crate::{
 };
 
 /// HTTP transport
+#[cfg(feature = "http-async-std")]
+#[derive(Clone)]
+pub struct HttpClient {
+    url: String,
+    id: Arc<AtomicU64>,
+    client: surf::Client,
+    headers: http::header::HeaderMap,
+    timeout: Option<std::time::Duration>,
+}
+
+/// HTTP transport
+#[cfg(feature = "http-tokio")]
 #[derive(Clone)]
 pub struct HttpClient {
     url: String,
@@ -36,7 +48,52 @@ impl HttpClient {
     pub fn builder() -> HttpClientBuilder {
         HttpClientBuilder::new()
     }
+}
 
+#[cfg(feature = "http-async-std")]
+impl HttpClient {
+    async fn send_request<REQ, RSP>(&self, request: REQ) -> Result<RSP>
+    where
+        REQ: Serialize,
+        RSP: Serialize + DeserializeOwned,
+    {
+        let request = serde_json::to_string(&request).expect("serialize request");
+        log::debug!("Request: {}", request);
+
+        let mut builder = self
+            .client
+            .post(&self.url)
+            .content_type(surf::http::mime::JSON)
+            .body(request);
+        for (header_name, header_value) in self.headers.iter() {
+            builder = builder.header(
+                header_name.as_str(),
+                header_value.to_str().expect("must be visible ascii"),
+            );
+        }
+
+        let response = builder.send();
+        let response = if let Some(duration) = self.timeout {
+            let timeout = async_std::task::sleep(duration);
+            futures::pin_mut!(response, timeout);
+            match futures::future::select(response, timeout).await {
+                futures::future::Either::Left((response, _)) => response,
+                futures::future::Either::Right((_, _)) => return Err(anyhow::anyhow!("http request timeout").into()),
+            }
+        } else {
+            response.await
+        };
+        let mut response = response.map_err(|err| err.into_inner())?;
+
+        let response = response.body_string().await.map_err(|err| err.into_inner())?;
+        log::debug!("Response: {}", response);
+
+        Ok(serde_json::from_str::<RSP>(&response)?)
+    }
+}
+
+#[cfg(feature = "http-tokio")]
+impl HttpClient {
     async fn send_request<REQ, RSP>(&self, request: REQ) -> Result<RSP>
     where
         REQ: Serialize,

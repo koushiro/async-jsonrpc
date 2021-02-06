@@ -95,6 +95,7 @@ impl HttpClientBuilder {
     /// Set a timeout for only the connect phase of a `Client`.
     ///
     /// Default is `None`.
+    #[cfg(feature = "http-tokio")]
     pub fn connect_timeout(mut self, timeout: Duration) -> Self {
         self.connect_timeout = Some(timeout);
         self
@@ -103,6 +104,19 @@ impl HttpClientBuilder {
     // ========================================================================
 
     /// Returns a `HttpClient` that uses this `HttpClientBuilder` configuration.
+    #[cfg(feature = "http-async-std")]
+    pub fn build<U: Into<String>>(self, url: U) -> Result<HttpClient> {
+        Ok(HttpClient {
+            url: url.into(),
+            id: Arc::new(AtomicU64::new(1)),
+            client: surf::Client::new(),
+            headers: self.headers,
+            timeout: self.timeout,
+        })
+    }
+
+    /// Returns a `HttpClient` that uses this `HttpClientBuilder` configuration.
+    #[cfg(feature = "http-tokio")]
     pub fn build<U: Into<String>>(self, url: U) -> Result<HttpClient> {
         let builder = reqwest::Client::builder().default_headers(self.headers);
         let builder = if let Some(timeout) = self.timeout {

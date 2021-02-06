@@ -4,9 +4,11 @@ mod task;
 #[cfg(test)]
 mod tests;
 
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use std::time::Duration;
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+    time::Duration,
+};
 
 use futures::{
     channel::{mpsc, oneshot},
