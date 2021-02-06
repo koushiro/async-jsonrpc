@@ -5,7 +5,7 @@
 mod error;
 mod transport;
 
-#[cfg(feature = "http-tokio")]
+#[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
 mod http_client;
 #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
 mod ws_client;
@@ -15,7 +15,7 @@ pub use self::{
     transport::{BatchTransport, PubsubTransport, Transport},
 };
 
-#[cfg(feature = "http-tokio")]
+#[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
 pub use self::http_client::{HttpClient, HttpClientBuilder};
 #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
 pub use self::{

@@ -1,6 +1,6 @@
 [package]
 name = "async-jsonrpc-client"
-version = "0.2.0-pre.0"
+version = "0.2.0-beta.0"
 authors = ["koushiro <koushiro.cqx@gmail.com>"]
 edition = "2018"
 readme = "README.md"
@@ -16,6 +16,7 @@ async-std-runtime = ["ws-async-std"]
 tokio-runtime = ["http-tokio", "ws-tokio"]
 
 # HTTP
+http-async-std = ["async-std", "surf", "anyhow"]
 http-tokio = ["tokio", "reqwest"]
 
 # WebSocket
@@ -33,7 +34,10 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
 
-# HTTP
+# HTTP (async-std)
+anyhow = { version = "1.0", optional = true }
+surf = { version = "2.1", default-features = false, features = ["h1-client"], optional = true }
+# HTTP (tokio)
 reqwest = { version = "0.11", features = ["json"], optional = true }
 
 # WebSocket
@@ -45,14 +49,15 @@ tokio = { version = "1.1", features = ["time"], optional = true }
 
 [dev-dependencies]
 env_logger = "0.8"
+tide = { version = "0.16", default-features = false, features = ["h1-server"]}
 async-std = { version = "1.9", features = ["attributes"] }
 hyper = { version = "0.14", features = ["server"] }
 tokio = { version = "1.1", features = ["macros", "rt-multi-thread"] }
 
-#[[example]]
-#name = "http-async-std"
-#path = "examples/http/async_std.rs"
-#required-features = ["http-async-std"]
+[[example]]
+name = "http-async-std"
+path = "examples/http/async_std.rs"
+required-features = ["http-async-std"]
 
 [[example]]
 name = "http-tokio"

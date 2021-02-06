@@ -36,34 +36,34 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --no-default-features --features 'async-std-runtime' --all-targets -- -D warnings
+          args: --features 'async-std-runtime' --all-targets -- -D warnings
 
       - name: Code Lint `tokio-runtime`
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --no-default-features --features 'tokio-runtime' --all-targets -- -D warnings
+          args: --features 'tokio-runtime' --all-targets -- -D warnings
 
-#      - name: Test `http-async-std`
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: test
-#          args: --no-default-features --features 'http-async-std'
+      - name: Test `http-async-std`
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --features 'http-async-std'
 
       - name: Test `http-tokio`
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --no-default-features --features 'http-tokio'
+          args: --features 'http-tokio'
 
       - name: Test `ws-async-std`
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --no-default-features --features 'ws-async-std'
+          args: --features 'ws-async-std'
 
       - name: Test `ws-tokio`
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --no-default-features --features 'ws-tokio'
+          args: --features 'ws-tokio'
