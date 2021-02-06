@@ -12,7 +12,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 pub use self::builder::HttpClientBuilder;
 use crate::{
-    error::Result,
+    error::HttpClientError,
     transport::{BatchTransport, Transport},
 };
 
@@ -38,7 +38,7 @@ pub struct HttpClient {
 
 impl HttpClient {
     /// Creates a new HTTP JSON-RPC client with given `url`.
-    pub fn new<U: Into<String>>(url: U) -> Result<Self> {
+    pub fn new<U: Into<String>>(url: U) -> Result<Self, HttpClientError> {
         HttpClientBuilder::new().build(url)
     }
 
@@ -52,7 +52,7 @@ impl HttpClient {
 
 #[cfg(feature = "http-async-std")]
 impl HttpClient {
-    async fn send_request<REQ, RSP>(&self, request: REQ) -> Result<RSP>
+    async fn send_request<REQ, RSP>(&self, request: REQ) -> Result<RSP, HttpClientError>
     where
         REQ: Serialize,
         RSP: Serialize + DeserializeOwned,
@@ -94,7 +94,7 @@ impl HttpClient {
 
 #[cfg(feature = "http-tokio")]
 impl HttpClient {
-    async fn send_request<REQ, RSP>(&self, request: REQ) -> Result<RSP>
+    async fn send_request<REQ, RSP>(&self, request: REQ) -> Result<RSP, HttpClientError>
     where
         REQ: Serialize,
         RSP: Serialize + DeserializeOwned,
@@ -116,7 +116,9 @@ impl HttpClient {
 
 #[async_trait::async_trait]
 impl Transport for HttpClient {
-    async fn request<M>(&self, method: M, params: Option<Params>) -> Result<Output>
+    type Error = HttpClientError;
+
+    async fn request<M>(&self, method: M, params: Option<Params>) -> Result<Output, Self::Error>
     where
         M: Into<String> + Send,
     {
@@ -128,7 +130,7 @@ impl Transport for HttpClient {
 
 #[async_trait::async_trait]
 impl BatchTransport for HttpClient {
-    async fn request_batch<I, M>(&self, batch: I) -> Result<Vec<Output>>
+    async fn request_batch<I, M>(&self, batch: I) -> Result<Vec<Output>, <Self as Transport>::Error>
     where
         I: IntoIterator<Item = (M, Option<Params>)> + Send,
         I::IntoIter: Send,

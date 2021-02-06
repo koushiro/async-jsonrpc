@@ -3,11 +3,11 @@ use std::collections::hash_map::{Entry, HashMap};
 use futures::channel::{mpsc, oneshot};
 use jsonrpc_types::*;
 
-use crate::error::Result;
+use crate::error::WsClientError;
 
-type PendingMethodCall = oneshot::Sender<Result<Output>>;
-type PendingBatchMethodCall = oneshot::Sender<Result<Vec<Output>>>;
-type PendingSubscription = oneshot::Sender<Result<(Id, mpsc::Receiver<SubscriptionNotification>)>>;
+type PendingMethodCall = oneshot::Sender<Result<Output, WsClientError>>;
+type PendingBatchMethodCall = oneshot::Sender<Result<Vec<Output>, WsClientError>>;
+type PendingSubscription = oneshot::Sender<Result<(Id, mpsc::Receiver<SubscriptionNotification>), WsClientError>>;
 type ActiveSubscription = mpsc::Sender<SubscriptionNotification>;
 type UnsubscribeMethod = String;
 
