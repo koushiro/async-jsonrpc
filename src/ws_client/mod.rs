@@ -4,9 +4,11 @@ mod task;
 #[cfg(test)]
 mod tests;
 
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use std::time::Duration;
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+    time::Duration,
+};
 
 use futures::{
     channel::{mpsc, oneshot},
@@ -49,7 +51,7 @@ pub(crate) enum ToBackTaskMessage {
     SubscriptionClosed(Id),
 }
 
-/// WebSocket transport
+/// WebSocket JSON-RPC client
 #[derive(Clone)]
 pub struct WsClient {
     to_back: mpsc::Sender<ToBackTaskMessage>,
@@ -58,7 +60,7 @@ pub struct WsClient {
 }
 
 impl WsClient {
-    /// Creates a new WebSocket transport.
+    /// Creates a new WebSocket JSON-RPC client.
     pub async fn new(url: impl Into<String>) -> Result<Self> {
         WsClientBuilder::new().build(url).await.map_err(ClientError::WebSocket)
     }

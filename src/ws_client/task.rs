@@ -31,7 +31,7 @@ struct WsSender {
 
 impl WsSender {
     fn new(sender: WsMsgSender) -> Self {
-        Self { id: 0, sender }
+        Self { id: 1, sender }
     }
 
     async fn send_message(&mut self, msg: Message) -> Result<(), WsError> {
