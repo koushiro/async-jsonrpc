@@ -48,7 +48,7 @@ pub(crate) enum ToBackTaskMessage {
     Unsubscribe {
         unsubscribe_method: String,
         subscription_id: Id,
-        /// One-shot channel where to send back the response of the batch request.
+        /// One-shot channel where to send back the response of the unsubscribe request.
         send_back: oneshot::Sender<Result<bool, WsClientError>>,
     },
 }

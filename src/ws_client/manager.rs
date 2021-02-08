@@ -21,7 +21,7 @@ enum RequestKind {
 }
 
 pub enum RequestStatus {
-    /// The method call is waiting for a response
+    /// The method call is waiting for a response.
     PendingMethodCall,
     /// The batch of method calls is waiting for batch of responses.
     PendingBatchMethodCall,
@@ -29,7 +29,7 @@ pub enum RequestStatus {
     PendingSubscription,
     /// An active subscription.
     ActiveSubscription,
-    /// The unsubscribe method call is waiting for a response
+    /// The unsubscribe method call is waiting for a response.
     PendingUnsubscribe,
     /// Invalid request ID.
     Invalid,
