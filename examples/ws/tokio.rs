@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use async_jsonrpc_client::{BatchTransport, PubsubTransport, Response, Transport, WsClient, WsClientError};
 
 #[tokio::main]
@@ -14,18 +16,14 @@ async fn main() -> Result<(), WsClientError> {
         .await?;
     log::info!("Response: {}", Response::Batch(response));
 
-    let (id, mut rx) = client
-        .subscribe("chain_subscribeNewHead", "chain_unsubscribeNewHead", None)
-        .await?;
+    let (id, mut rx) = client.subscribe("chain_subscribeNewHead", None).await?;
     log::info!("Subscription ID: {}", id);
 
-    /*
     let client_clone = client.clone();
     tokio::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+        tokio::time::sleep(Duration::from_secs(20)).await;
         let _ = client_clone.unsubscribe("chain_unsubscribeNewHead", id).await;
     });
-    */
 
     while let Some(notification) = rx.next().await {
         log::info!("Subscription Notification: {}", notification);

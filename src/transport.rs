@@ -35,15 +35,13 @@ pub trait PubsubTransport: Transport {
     /// Add a subscription to this transport.
     ///
     /// Will send unsubscribe request to the server when drop the notification stream.
-    async fn subscribe<M1, M2>(
+    async fn subscribe<M>(
         &self,
-        subscribe_method: M1,
-        unsubscribe_method: M2,
+        subscribe_method: M,
         params: Option<Params>,
     ) -> Result<(Id, Self::NotificationStream), Self::Error>
     where
-        M1: Into<String> + Send,
-        M2: Into<String> + Send;
+        M: Into<String> + Send;
 
     /// Send an unsubscribe request to the server manually.
     async fn unsubscribe<M>(&self, unsubscribe_method: M, subscription_id: Id) -> Result<bool, Self::Error>

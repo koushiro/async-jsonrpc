@@ -32,7 +32,7 @@ jobs:
           command: fmt
           args: --all -- --check
 
-      - name: Code Lint `async-std`
+      - name: Code Lint `async-std-runtime`
         uses: actions-rs/cargo@v1
         with:
           command: clippy
