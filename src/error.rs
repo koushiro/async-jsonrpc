@@ -1,8 +1,6 @@
-use thiserror::Error;
-
 /// The error type for rpc transport.
 #[cfg(any(feature = "http-async-std", feature = "http-tokio"))]
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum HttpClientError {
     /// Json serialization/deserialization error.
     #[error(transparent)]
@@ -25,7 +23,7 @@ pub use async_tungstenite::tungstenite::Error as WsError;
 
 /// The error type for websocket rpc transport.
 #[cfg(any(feature = "ws-async-std", feature = "ws-tokio"))]
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum WsClientError {
     /// Json serialization/deserialization error.
     #[error(transparent)]
