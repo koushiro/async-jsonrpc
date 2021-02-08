@@ -12,7 +12,7 @@ keywords = ["async", "jsonrpc", "client"]
 exclude = [".github"]
 
 [features]
-default = []
+default = ["tokio-runtime"]
 async-std-runtime = ["ws-async-std"]
 tokio-runtime = ["http-tokio", "ws-tokio"]
 
