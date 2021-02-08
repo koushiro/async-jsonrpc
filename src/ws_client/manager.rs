@@ -9,18 +9,19 @@ type PendingMethodCall = oneshot::Sender<Result<Output, WsClientError>>;
 type PendingBatchMethodCall = oneshot::Sender<Result<Vec<Output>, WsClientError>>;
 type PendingSubscription = oneshot::Sender<Result<(Id, mpsc::Receiver<SubscriptionNotification>), WsClientError>>;
 type ActiveSubscription = mpsc::Sender<SubscriptionNotification>;
-type UnsubscribeMethod = String;
+type PendingUnsubscribe = oneshot::Sender<Result<bool, WsClientError>>;
 
 #[derive(Debug)]
 enum RequestKind {
     PendingMethodCall(PendingMethodCall),
     PendingBatchMethodCall(PendingBatchMethodCall),
-    PendingSubscription((PendingSubscription, UnsubscribeMethod)),
-    ActiveSubscription((ActiveSubscription, UnsubscribeMethod)),
+    PendingSubscription(PendingSubscription),
+    ActiveSubscription(ActiveSubscription),
+    PendingUnsubscribe((Id, PendingUnsubscribe)),
 }
 
 pub enum RequestStatus {
-    /// The method call is waiting for a response
+    /// The method call is waiting for a response.
     PendingMethodCall,
     /// The batch of method calls is waiting for batch of responses.
     PendingBatchMethodCall,
@@ -28,6 +29,8 @@ pub enum RequestStatus {
     PendingSubscription,
     /// An active subscription.
     ActiveSubscription,
+    /// The unsubscribe method call is waiting for a response.
+    PendingUnsubscribe,
     /// Invalid request ID.
     Invalid,
 }
@@ -117,11 +120,10 @@ impl TaskManager {
         &mut self,
         request_id: u64,
         send_back: PendingSubscription,
-        unsubscribe_method: UnsubscribeMethod,
     ) -> Result<(), PendingSubscription> {
         match self.requests.entry(request_id) {
             Entry::Vacant(request) => {
-                request.insert(RequestKind::PendingSubscription((send_back, unsubscribe_method)));
+                request.insert(RequestKind::PendingSubscription(send_back));
                 Ok(())
             }
             // Duplicate request ID.
@@ -130,10 +132,7 @@ impl TaskManager {
     }
 
     /// Tries to complete a pending subscription from manager.
-    pub fn complete_pending_subscription(
-        &mut self,
-        request_id: u64,
-    ) -> Option<(PendingSubscription, UnsubscribeMethod)> {
+    pub fn complete_pending_subscription(&mut self, request_id: u64) -> Option<PendingSubscription> {
         match self.requests.entry(request_id) {
             Entry::Occupied(request) if matches!(request.get(), RequestKind::PendingSubscription(_)) => {
                 if let (_id, RequestKind::PendingSubscription(send_back)) = request.remove_entry() {
@@ -152,14 +151,13 @@ impl TaskManager {
         request_id: u64,
         subscription_id: Id,
         send_back: ActiveSubscription,
-        unsubscribe_method: UnsubscribeMethod,
     ) -> Result<(), ActiveSubscription> {
         match (
             self.requests.entry(request_id),
             self.subscriptions.entry(subscription_id),
         ) {
             (Entry::Vacant(request), Entry::Vacant(subscription)) => {
-                request.insert(RequestKind::ActiveSubscription((send_back, unsubscribe_method)));
+                request.insert(RequestKind::ActiveSubscription(send_back));
                 subscription.insert(request_id);
                 Ok(())
             }
@@ -169,11 +167,7 @@ impl TaskManager {
     }
 
     /// Tries to remove an active subscription from manager.
-    pub fn remove_active_subscription(
-        &mut self,
-        request_id: u64,
-        subscription_id: Id,
-    ) -> Option<(ActiveSubscription, UnsubscribeMethod)> {
+    pub fn remove_active_subscription(&mut self, request_id: u64, subscription_id: Id) -> Option<ActiveSubscription> {
         match (
             self.requests.entry(request_id),
             self.subscriptions.entry(subscription_id),
@@ -185,6 +179,37 @@ impl TaskManager {
                     Some(send_back)
                 } else {
                     unreachable!("Kind must be ActiveSubscription; qed");
+                }
+            }
+            _ => None,
+        }
+    }
+
+    /// Tries to insert a new pending unsubscribe method call into manager.
+    pub fn insert_pending_unsubscribe(
+        &mut self,
+        request_id: u64,
+        subscription_id: Id,
+        send_back: PendingUnsubscribe,
+    ) -> Result<(), PendingUnsubscribe> {
+        match self.requests.entry(request_id) {
+            Entry::Vacant(request) => {
+                request.insert(RequestKind::PendingUnsubscribe((subscription_id, send_back)));
+                Ok(())
+            }
+            // Duplicate request ID.
+            Entry::Occupied(_) => Err(send_back),
+        }
+    }
+
+    /// Tries to complete a pending method call from manager.
+    pub fn complete_pending_unsubscribe(&mut self, request_id: u64) -> Option<(Id, PendingUnsubscribe)> {
+        match self.requests.entry(request_id) {
+            Entry::Occupied(request) if matches!(request.get(), RequestKind::PendingUnsubscribe(_)) => {
+                if let (_req_id, RequestKind::PendingUnsubscribe(send_back)) = request.remove_entry() {
+                    Some(send_back)
+                } else {
+                    unreachable!("Kind must be PendingUnsubscribe; qed");
                 }
             }
             _ => None,
@@ -205,6 +230,7 @@ impl TaskManager {
                 RequestKind::PendingBatchMethodCall(_) => RequestStatus::PendingBatchMethodCall,
                 RequestKind::PendingSubscription(_) => RequestStatus::PendingSubscription,
                 RequestKind::ActiveSubscription(_) => RequestStatus::ActiveSubscription,
+                RequestKind::PendingUnsubscribe(_) => RequestStatus::PendingUnsubscribe,
             })
     }
 
@@ -212,7 +238,7 @@ impl TaskManager {
     /// the subscription channel.
     pub fn as_active_subscription_mut(&mut self, request_id: &u64) -> Option<&mut ActiveSubscription> {
         let kind = self.requests.get_mut(request_id);
-        if let Some(RequestKind::ActiveSubscription((sink, _))) = kind {
+        if let Some(RequestKind::ActiveSubscription(sink)) = kind {
             Some(sink)
         } else {
             None
