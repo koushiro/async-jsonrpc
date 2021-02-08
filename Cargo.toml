@@ -9,6 +9,7 @@ documentation = "https://docs.rs/async-jsonrpc-client"
 repository = "https://github.com/koushiro/async-jsonrpc-client-rs"
 description = "An asynchronous JSON-RPC client library, which supports HTTP and WebSocket"
 keywords = ["async", "jsonrpc", "client"]
+exclude = [".github"]
 
 [features]
 default = []
