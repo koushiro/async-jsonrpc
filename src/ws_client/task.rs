@@ -35,7 +35,7 @@ impl WsSender {
     }
 
     async fn send_message(&mut self, msg: Message) -> Result<(), WsError> {
-        log::debug!("[backend] Send websocket message: {}", msg);
+        log::trace!("[backend] Send websocket message: {}", msg);
         self.sender.feed(msg).await?;
         self.sender.flush().await?;
         Ok(())
@@ -43,12 +43,11 @@ impl WsSender {
 
     async fn send_request(&mut self, method: impl Into<String>, params: Option<Params>) -> Result<u64, WsError> {
         let method = method.into();
-        log::debug!("[backend] Send method call: method={}, params={:?}", method, params);
-
         let id = self.id;
         self.id = id.wrapping_add(1);
         let call = Call::MethodCall(MethodCall::new(method, params, Id::Num(id)));
         let request = serde_json::to_string(&call).expect("serialize call; qed");
+        log::debug!("[backend] Send a method call: {}", request);
         self.send_message(Message::Text(request)).await?;
         Ok(id)
     }
@@ -68,9 +67,9 @@ impl WsSender {
             ids.push(id);
             calls.push(call);
         }
-        log::debug!("[backend] Send a batch of method calls: {:?}", calls);
         let request = Request::Batch(calls);
         let request = serde_json::to_string(&request).expect("serialize calls; qed");
+        log::debug!("[backend] Send a batch of method calls: {}", request);
         self.send_message(Message::Text(request)).await?;
         Ok(ids)
     }
@@ -104,7 +103,7 @@ impl WsReceiver {
         loop {
             if let Some(message) = self.0.next().await {
                 let message = message?;
-                log::debug!("[backend] Receive websocket message: {}", message);
+                log::trace!("[backend] Receive websocket message: {}", message);
                 return Ok(message);
             }
         }
@@ -156,7 +155,7 @@ impl WsTask {
                 msg = from_front.next() => match msg {
                     Some(msg) => handle_from_front_message(msg, &mut manager, &mut sender).await,
                     None => {
-                        log::error!("[backend] Frontend channel dropped; terminate client");
+                        log::debug!("[backend] Frontend channel dropped; terminate client");
                         break;
                     }
                 },
@@ -170,7 +169,7 @@ impl WsTask {
                         break;
                     }
                     None => {
-                        log::error!("[backend] Backend channel dropped; terminate client");
+                        log::debug!("[backend] Backend channel dropped; terminate client");
                         break;
                     }
                 },
@@ -239,33 +238,24 @@ async fn handle_from_front_message(msg: ToBackTaskMessage, manager: &mut TaskMan
             unsubscribe_method,
             subscription_id,
             send_back,
-        } => {
-            match sender
-                .stop_subscription(unsubscribe_method, subscription_id.clone())
-                .await
-            {
-                Ok(req_id) => {
-                    if let Err(send_back) = manager.insert_pending_unsubscribe(req_id, subscription_id, send_back) {
-                        send_back
-                            .send(Err(WsClientError::DuplicateRequestId))
-                            .expect("Send unsubscribe request error back");
-                    }
-                }
-                Err(err) => {
-                    log::warn!("[backend] Send unsubscribe request error: {}", err);
+        } => match sender
+            .stop_subscription(unsubscribe_method, subscription_id.clone())
+            .await
+        {
+            Ok(req_id) => {
+                if let Err(send_back) = manager.insert_pending_unsubscribe(req_id, subscription_id, send_back) {
                     send_back
-                        .send(Err(WsClientError::WebSocket(err)))
+                        .send(Err(WsClientError::DuplicateRequestId))
                         .expect("Send unsubscribe request error back");
                 }
             }
-        },
-        ToBackTaskMessage::SubscriptionClosed(subscription_id) => {
-            log::debug!("[backend] Close subscription: id={:?}", subscription_id);
-            // NOTE: The subscription may have been closed earlier if the channel was full or disconnected.
-            if let Some(request_id) = manager.get_request_id_by(&subscription_id) {
-                manager.remove_active_subscription(request_id, subscription_id.clone());
+            Err(err) => {
+                log::warn!("[backend] Send unsubscribe request error: {}", err);
+                send_back
+                    .send(Err(WsClientError::WebSocket(err)))
+                    .expect("Send unsubscribe request error back");
             }
-        }
+        },
     }
 }
 
@@ -310,7 +300,7 @@ fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(),
     let response_id = response_id_of(&output)?;
     match manager.request_status(&response_id) {
         RequestStatus::PendingMethodCall => {
-            log::debug!("[backend] Handle single response of method call: id={}", response_id);
+            log::debug!("[backend] Handle response of method call: id={}", response_id);
             let send_back = manager
                 .complete_pending_method_call(response_id)
                 .ok_or(WsClientError::InvalidRequestId)?;
@@ -348,19 +338,15 @@ fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(),
                 send_back
                     .send(Ok((subscription_id, subscribe_rx)))
                     .expect("Send subscription stream back");
-                Ok(())
             } else {
                 send_back
                     .send(Err(WsClientError::InvalidSubscriptionId))
                     .expect("Send subscription error back");
-                Ok(())
             }
+            Ok(())
         }
         RequestStatus::PendingUnsubscribe => {
-            log::debug!(
-                "[backend] Handle single response of unsubscribe request: id={}",
-                response_id
-            );
+            log::debug!("[backend] Handle response of unsubscribe request: id={}", response_id);
             let (subscription_id, send_back) = manager
                 .complete_pending_unsubscribe(response_id)
                 .ok_or(WsClientError::InvalidRequestId)?;
@@ -396,7 +382,6 @@ fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(),
                     );
                 }
             }
-
             Ok(())
         }
         RequestStatus::ActiveSubscription | RequestStatus::PendingBatchMethodCall | RequestStatus::Invalid => {

@@ -51,9 +51,6 @@ pub(crate) enum ToBackTaskMessage {
         /// One-shot channel where to send back the response of the batch request.
         send_back: oneshot::Sender<Result<bool, WsClientError>>,
     },
-    /// When a subscription channel is closed, we send this message to the backend task to clean
-    /// the subscription.
-    SubscriptionClosed(Id),
 }
 
 /// WebSocket JSON-RPC client
@@ -191,11 +188,7 @@ impl WsClient {
             rx.await
         };
         match res {
-            Ok(Ok((id, notification_rx))) => Ok(WsSubscription {
-                id,
-                notification_rx,
-                to_back: self.to_back.clone(),
-            }),
+            Ok(Ok((id, notification_rx))) => Ok(WsSubscription { id, notification_rx }),
             Ok(Err(err)) => Err(err),
             Err(_) => Err(WsClientError::InternalChannel),
         }
@@ -252,8 +245,6 @@ pub struct WsSubscription<Notif> {
     pub id: Id,
     /// Channel from which we receive notifications from the server.
     notification_rx: mpsc::Receiver<Notif>,
-    /// Channel to send unsubscribe request to the background task.
-    to_back: mpsc::Sender<ToBackTaskMessage>,
 }
 
 impl<Notif> WsSubscription<Notif> {
@@ -270,18 +261,6 @@ impl<Notif> Stream for WsSubscription<Notif> {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         mpsc::Receiver::<Notif>::poll_next(Pin::new(&mut self.notification_rx), cx)
-    }
-}
-
-impl<Notif> Drop for WsSubscription<Notif> {
-    fn drop(&mut self) {
-        use futures::future::FutureExt;
-        let id = std::mem::replace(&mut self.id, Id::Num(0));
-        log::debug!("[frontend] Dropping the subscription stream, id={}", id);
-        let _ = self
-            .to_back
-            .send(ToBackTaskMessage::SubscriptionClosed(id))
-            .now_or_never();
     }
 }
 

@@ -21,15 +21,13 @@ async fn main() -> Result<(), WsClientError> {
 
     let client_clone = client.clone();
     tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(30)).await;
+        tokio::time::sleep(Duration::from_secs(20)).await;
         let _ = client_clone.unsubscribe("chain_unsubscribeNewHead", id).await;
     });
 
     while let Some(notification) = rx.next().await {
         log::info!("Subscription Notification: {}", notification);
     }
-
-    tokio::time::sleep(Duration::from_secs(10)).await;
 
     Ok(())
 }
