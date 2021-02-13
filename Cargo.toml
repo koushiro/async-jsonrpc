@@ -37,7 +37,7 @@ thiserror = "1.0"
 
 # HTTP (async-std)
 anyhow = { version = "1.0", optional = true }
-surf = { version = "2.1", default-features = false, features = ["h1-client"], optional = true }
+surf = { version = "2.1", default-features = false, features = ["curl-client"], optional = true }
 # HTTP (tokio)
 reqwest = { version = "0.11", features = ["json"], optional = true }
 

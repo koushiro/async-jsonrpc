@@ -21,7 +21,6 @@ fn http_header() {
     assert_eq!(bearer_auth, HeaderValue::from_static("Bearer Hold my bear"));
 }
 
-/*
 #[cfg(feature = "http-async-std")]
 async fn server(addr: &str) -> std::io::Result<()> {
     let mut server = tide::new();
@@ -88,7 +87,6 @@ async fn make_jsonrpc_request() {
         );
     }
 }
-*/
 
 #[cfg(feature = "http-tokio")]
 async fn dispatch_fn(req: hyper::Request<hyper::Body>) -> hyper::Result<hyper::Response<hyper::Body>> {
