@@ -3,15 +3,15 @@
 An async JSON-RPC 2.0 crate written in Rust.
 
 [![ga-svg]][ga-url]
-[![deps-svg]][deps-url]
 [![codecov-svg]][codecov-url]
+[![deps-svg]][deps-url]
 
 [ga-svg]: https://github.com/koushiro/async-jsonrpc/workflows/build/badge.svg
 [ga-url]: https://github.com/koushiro/async-jsonrpc/actions
-[deps-svg]: https://deps.rs/repo/github/koushiro/async-jsonrpc/status.svg
-[deps-url]: https://deps.rs/repo/github/koushiro/async-jsonrpc
 [codecov-svg]: https://img.shields.io/codecov/c/github/koushiro/async-jsonrpc
 [codecov-url]: https://codecov.io/gh/koushiro/async-jsonrpc
+[deps-svg]: https://deps.rs/repo/github/koushiro/async-jsonrpc/status.svg
+[deps-url]: https://deps.rs/repo/github/koushiro/async-jsonrpc
 
 | crate | description | label |
 | :---: | :---------: | :---: |

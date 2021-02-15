@@ -1,11 +1,8 @@
 # jsonrpc-types
 
-[![ga-svg]][ga-url]
 [![crates-svg]][crates-url]
 [![docs-svg]][docs-url]
 
-[ga-svg]: https://github.com/koushiro/async-jsonrpc/workflows/build/badge.svg
-[ga-url]: https://github.com/koushiro/async-jsonrpc/actions
 [crates-svg]: https://img.shields.io/crates/v/jsonrpc-types
 [crates-url]: https://crates.io/crates/jsonrpc-types
 [docs-svg]: https://docs.rs/jsonrpc-types/badge.svg
