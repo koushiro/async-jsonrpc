@@ -11,7 +11,7 @@
 [docs-svg]: https://docs.rs/async-jsonrpc-client/badge.svg
 [docs-url]: https://docs.rs/async-jsonrpc-client
 
-An async JSON-RPC 2.0 client library written in Rust.
+An asynchronous JSON-RPC 2.0 client library written in Rust.
 
 ## Features
 
