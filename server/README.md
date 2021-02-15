@@ -1,4 +1,4 @@
-# jsonrpc-types
+# async-jsonrpc-server
 
 [![ga-svg]][ga-url]
 [![crates-svg]][crates-url]
@@ -6,17 +6,16 @@
 
 [ga-svg]: https://github.com/koushiro/async-jsonrpc/workflows/build/badge.svg
 [ga-url]: https://github.com/koushiro/async-jsonrpc/actions
-[crates-svg]: https://img.shields.io/crates/v/jsonrpc-types
-[crates-url]: https://crates.io/crates/jsonrpc-types
-[docs-svg]: https://docs.rs/jsonrpc-types/badge.svg
-[docs-url]: https://docs.rs/jsonrpc-types
+[crates-svg]: https://img.shields.io/crates/v/async-jsonrpc-server
+[crates-url]: https://crates.io/crates/async-jsonrpc-server
+[docs-svg]: https://docs.rs/async-jsonrpc-server/badge.svg
+[docs-url]: https://docs.rs/async-jsonrpc-server
 
-A general purpose library of [JSON-RPC 1.0](https://www.jsonrpc.org/specification_v1) and 
-[JSON-RPC 2.0](https://www.jsonrpc.org/specification) types.
+TODO: An async JSON-RPC 2.0 server library written in Rust.
+
+## Features
 
 ## Usage
-
-See [documentation](https://docs.rs/jsonrpc-types) for details.
 
 ## License
 
