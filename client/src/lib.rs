@@ -1,4 +1,4 @@
-//! An asynchronous JSON-RPC 2.0 client library, which supports HTTP and WebSocket.
+//! An async JSON-RPC 2.0 client library.
 
 #![deny(missing_docs)]
 
