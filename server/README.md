@@ -1,8 +1,11 @@
 # async-jsonrpc-server
 
+[![ga-svg]][ga-url]
 [![crates-svg]][crates-url]
 [![docs-svg]][docs-url]
 
+[ga-svg]: https://github.com/koushiro/async-jsonrpc/workflows/build/badge.svg
+[ga-url]: https://github.com/koushiro/async-jsonrpc/actions
 [crates-svg]: https://img.shields.io/crates/v/async-jsonrpc-server
 [crates-url]: https://crates.io/crates/async-jsonrpc-server
 [docs-svg]: https://docs.rs/async-jsonrpc-server/badge.svg
