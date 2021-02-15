@@ -3,21 +3,21 @@
 An async JSON-RPC 2.0 crate written in Rust.
 
 [![ga-svg]][ga-url]
-[![deps-svg]][deps-url]
 [![codecov-svg]][codecov-url]
+[![deps-svg]][deps-url]
 
 [ga-svg]: https://github.com/koushiro/async-jsonrpc/workflows/build/badge.svg
 [ga-url]: https://github.com/koushiro/async-jsonrpc/actions
-[deps-svg]: https://deps.rs/repo/github/koushiro/async-jsonrpc/status.svg
-[deps-url]: https://deps.rs/repo/github/koushiro/async-jsonrpc
 [codecov-svg]: https://img.shields.io/codecov/c/github/koushiro/async-jsonrpc
 [codecov-url]: https://codecov.io/gh/koushiro/async-jsonrpc
+[deps-svg]: https://deps.rs/repo/github/koushiro/async-jsonrpc/status.svg
+[deps-url]: https://deps.rs/repo/github/koushiro/async-jsonrpc
 
-| crate | description | label |
-| :---: | :---------: | :---: |
+| sub-crate | description | label |
+| :-------: | :---------: | :---: |
 | jsonrpc-types | A general purpose library of JSON-RPC 1.0 and JSON-RPC 2.0 types | [![types-crates-svg]][types-crates-url] [![types-docs-svg]][types-docs-url] |
-| async-jsonrpc-client | An async JSON-RPC 2.0 client library | [![client-crates-svg]][client-crates-url] [![client-docs-svg]][client-docs-url] |
-| async-jsonrpc-server | TODO: An async JSON-RPC 2.0 server library | [![server-crates-svg]][server-crates-url] [![server-docs-svg]][server-docs-url] |
+| async-jsonrpc-client | An asynchronous JSON-RPC 2.0 client library | [![client-crates-svg]][client-crates-url] [![client-docs-svg]][client-docs-url] |
+| async-jsonrpc-server | TODO: An asynchronous JSON-RPC 2.0 server library | [![server-crates-svg]][server-crates-url] [![server-docs-svg]][server-docs-url] |
 
 [types-crates-svg]: https://img.shields.io/crates/v/jsonrpc-types
 [types-crates-url]: https://crates.io/crates/jsonrpc-types

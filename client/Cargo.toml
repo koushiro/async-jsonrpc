@@ -7,7 +7,7 @@ readme = "README.md"
 license = "MIT/Apache-2.0"
 documentation = "https://docs.rs/async-jsonrpc-client"
 repository = "https://github.com/koushiro/async-jsonrpc"
-description = "An asynchronous JSON-RPC 2.0 client library, which supports HTTP and WebSocket"
+description = "An asynchronous JSON-RPC 2.0 client library"
 keywords = ["jsonrpc", "rpc", "async", "client"]
 categories = ["network-programming", "web-programming"]
 

@@ -11,7 +11,7 @@
 [docs-svg]: https://docs.rs/async-jsonrpc-server/badge.svg
 [docs-url]: https://docs.rs/async-jsonrpc-server
 
-TODO: An async JSON-RPC 2.0 server library written in Rust.
+TODO: An asynchronous JSON-RPC 2.0 server library written in Rust.
 
 ## Features
 
