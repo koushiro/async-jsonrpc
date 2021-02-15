@@ -1,0 +1,76 @@
+[package]
+name = "async-jsonrpc-client"
+version = "0.3.0-beta.1"
+authors = ["koushiro <koushiro.cqx@gmail.com>"]
+edition = "2018"
+readme = "README.md"
+license = "MIT/Apache-2.0"
+documentation = "https://docs.rs/async-jsonrpc-client"
+repository = "https://github.com/koushiro/async-jsonrpc-client"
+description = "An asynchronous JSON-RPC 2.0 client library, which supports HTTP and WebSocket"
+keywords = ["jsonrpc", "rpc", "async", "client"]
+categories = ["network-programming", "web-programming"]
+
+[features]
+default = ["tokio-runtime"]
+async-std-runtime = ["ws-async-std"]
+tokio-runtime = ["http-tokio", "ws-tokio"]
+
+# HTTP
+http-async-std = ["async-std", "surf", "anyhow"]
+http-tokio = ["tokio", "reqwest"]
+
+# WebSocket
+ws-async-std = ["async-std", "async-tungstenite/async-std-runtime", "async-tungstenite/async-tls"]
+ws-tokio = ["tokio", "async-tungstenite/tokio-runtime", "async-tungstenite/tokio-native-tls"]
+
+[dependencies]
+async-trait = "0.1"
+base64 = "0.13"
+futures = "0.3"
+log = "0.4"
+http = "0.2"
+jsonrpc-types = { version = "0.3", path = "../types" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+
+# HTTP (async-std)
+anyhow = { version = "1.0", optional = true }
+surf = { version = "2.1", default-features = false, features = ["curl-client"], optional = true }
+# HTTP (tokio)
+reqwest = { version = "0.11", features = ["json"], optional = true }
+
+# WebSocket (async-std / tokio)
+async-tungstenite = { version = "0.13", optional = true }
+
+# Runtime
+async-std = { version = "1.9", optional = true }
+tokio = { version = "1.2", features = ["time"], optional = true }
+
+[dev-dependencies]
+env_logger = "0.8"
+tide = { version = "0.16", default-features = false, features = ["h1-server"]}
+async-std = { version = "1.9", features = ["attributes"] }
+hyper = { version = "0.14", features = ["server"] }
+tokio = { version = "1.2", features = ["macros", "rt-multi-thread"] }
+
+[[example]]
+name = "http-async-std"
+path = "examples/http/async_std.rs"
+required-features = ["http-async-std"]
+
+[[example]]
+name = "http-tokio"
+path = "examples/http/tokio.rs"
+required-features = ["http-tokio"]
+
+[[example]]
+name = "ws-async-std"
+path = "examples/ws/async_std.rs"
+required-features = ["ws-async-std"]
+
+[[example]]
+name = "ws-tokio"
+path = "examples/ws/tokio.rs"
+required-features = ["ws-tokio"]
