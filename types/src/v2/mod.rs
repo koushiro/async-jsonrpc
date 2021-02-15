@@ -7,8 +7,8 @@ mod version;
 
 pub use self::{
     request::{
-        Call, MethodCall, MethodCallRequest, Notification, Params, Request,
-        SubscriptionNotification, SubscriptionNotificationParams,
+        Call, MethodCall, MethodCallRequest, Notification, Params, Request, SubscriptionNotification,
+        SubscriptionNotificationParams,
     },
     response::{Failure, Output, Response, Success},
     version::Version,

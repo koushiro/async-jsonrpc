@@ -137,9 +137,7 @@ impl<'de> de::Deserialize<'de> for Notification {
                 let params = params.ok_or_else(|| de::Error::missing_field("params"))?;
                 let id = id.ok_or_else(|| de::Error::missing_field("id"))?;
                 if id.is_some() {
-                    return Err(de::Error::custom(
-                        "JSON-RPC 1.0 notification id MUST be Null",
-                    ));
+                    return Err(de::Error::custom("JSON-RPC 1.0 notification id MUST be Null"));
                 }
                 Ok(Notification { method, params })
             }
@@ -400,22 +398,13 @@ mod tests {
         for (method_call, expect) in method_call_cases() {
             let call_request = Request::Single(Call::MethodCall(method_call));
             assert_eq!(serde_json::to_string(&call_request).unwrap(), expect);
-            assert_eq!(
-                serde_json::from_str::<Request>(expect).unwrap(),
-                call_request
-            );
+            assert_eq!(serde_json::from_str::<Request>(expect).unwrap(), call_request);
         }
 
         for (notification, expect) in notification_cases() {
             let notification_request = Request::Single(Call::Notification(notification));
-            assert_eq!(
-                serde_json::to_string(&notification_request).unwrap(),
-                expect
-            );
-            assert_eq!(
-                serde_json::from_str::<Request>(expect).unwrap(),
-                notification_request
-            );
+            assert_eq!(serde_json::to_string(&notification_request).unwrap(), expect);
+            assert_eq!(serde_json::from_str::<Request>(expect).unwrap(), notification_request);
         }
 
         let batch_request = Request::Batch(vec![
@@ -430,13 +419,9 @@ mod tests {
                 id: Id::Num(2),
             }),
         ]);
-        let batch_expect =
-            r#"[{"method":"foo","params":[],"id":1},{"method":"bar","params":[],"id":2}]"#;
+        let batch_expect = r#"[{"method":"foo","params":[],"id":1},{"method":"bar","params":[],"id":2}]"#;
         assert_eq!(serde_json::to_string(&batch_request).unwrap(), batch_expect);
-        assert_eq!(
-            serde_json::from_str::<Request>(&batch_expect).unwrap(),
-            batch_request
-        );
+        assert_eq!(serde_json::from_str::<Request>(&batch_expect).unwrap(), batch_request);
     }
 
     #[test]

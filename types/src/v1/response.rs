@@ -270,16 +270,9 @@ mod tests {
                 id: Some(Id::Num(2)),
             },
         ]);
-        let batch_expect =
-            r#"[{"result":true,"error":null,"id":1},{"result":false,"error":null,"id":2}]"#;
-        assert_eq!(
-            serde_json::to_string(&batch_response).unwrap(),
-            batch_expect
-        );
-        assert_eq!(
-            serde_json::from_str::<Response>(&batch_expect).unwrap(),
-            batch_response
-        );
+        let batch_expect = r#"[{"result":true,"error":null,"id":1},{"result":false,"error":null,"id":2}]"#;
+        assert_eq!(serde_json::to_string(&batch_response).unwrap(), batch_expect);
+        assert_eq!(serde_json::from_str::<Response>(&batch_expect).unwrap(), batch_response);
     }
 
     #[test]

@@ -232,19 +232,13 @@ mod tests {
         for (success_response, expect) in success_response_cases() {
             let response_output = Output::Success(success_response);
             assert_eq!(serde_json::to_string(&response_output).unwrap(), expect);
-            assert_eq!(
-                serde_json::from_str::<Output>(expect).unwrap(),
-                response_output
-            );
+            assert_eq!(serde_json::from_str::<Output>(expect).unwrap(), response_output);
         }
 
         for (failure_response, expect) in failure_response_cases() {
             let response_output = Output::Failure(failure_response);
             assert_eq!(serde_json::to_string(&response_output).unwrap(), expect);
-            assert_eq!(
-                serde_json::from_str::<Output>(expect).unwrap(),
-                response_output
-            );
+            assert_eq!(serde_json::from_str::<Output>(expect).unwrap(), response_output);
         }
     }
 
@@ -253,39 +247,22 @@ mod tests {
         for (success_resp, expect) in success_response_cases() {
             let success_response = Response::Single(Output::Success(success_resp.clone()));
             assert_eq!(serde_json::to_string(&success_response).unwrap(), expect);
-            assert_eq!(
-                serde_json::from_str::<Response>(expect).unwrap(),
-                success_response
-            );
+            assert_eq!(serde_json::from_str::<Response>(expect).unwrap(), success_response);
         }
 
         for (failure_resp, expect) in failure_response_cases() {
             let failure_response = Response::Single(Output::Failure(failure_resp.clone()));
             assert_eq!(serde_json::to_string(&failure_response).unwrap(), expect);
-            assert_eq!(
-                serde_json::from_str::<Response>(expect).unwrap(),
-                failure_response
-            );
+            assert_eq!(serde_json::from_str::<Response>(expect).unwrap(), failure_response);
         }
 
         for ((success_resp, success_expect), (failure_resp, failure_expect)) in
-            success_response_cases()
-                .into_iter()
-                .zip(failure_response_cases())
+            success_response_cases().into_iter().zip(failure_response_cases())
         {
-            let batch_response = Response::Batch(vec![
-                Output::Success(success_resp),
-                Output::Failure(failure_resp),
-            ]);
+            let batch_response = Response::Batch(vec![Output::Success(success_resp), Output::Failure(failure_resp)]);
             let batch_expect = format!("[{},{}]", success_expect, failure_expect);
-            assert_eq!(
-                serde_json::to_string(&batch_response).unwrap(),
-                batch_expect
-            );
-            assert_eq!(
-                serde_json::from_str::<Response>(&batch_expect).unwrap(),
-                batch_response
-            );
+            assert_eq!(serde_json::to_string(&batch_response).unwrap(), batch_expect);
+            assert_eq!(serde_json::from_str::<Response>(&batch_expect).unwrap(), batch_response);
         }
     }
 

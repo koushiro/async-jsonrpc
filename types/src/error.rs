@@ -193,11 +193,7 @@ mod tests {
             r#"{"code":-32602,"message":"Invalid parameters: unexpected params"}"#
         );
         assert_eq!(
-            serde_json::to_string(&Error::invalid_params_with_details(
-                "unexpected params",
-                "details"
-            ))
-            .unwrap(),
+            serde_json::to_string(&Error::invalid_params_with_details("unexpected params", "details")).unwrap(),
             r#"{"code":-32602,"message":"Invalid parameters: unexpected params","data":"details"}"#
         );
         assert_eq!(

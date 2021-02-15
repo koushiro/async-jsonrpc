@@ -309,10 +309,7 @@ mod tests {
         let array = vec![Value::from(1), Value::Bool(true)];
         let params = Params::Array(array.clone());
         assert_eq!(serde_json::to_string(&params).unwrap(), r#"[1,true]"#);
-        assert_eq!(
-            serde_json::from_str::<Params>(r#"[1,true]"#).unwrap(),
-            params
-        );
+        assert_eq!(serde_json::from_str::<Params>(r#"[1,true]"#).unwrap(), params);
 
         let object = {
             let mut map = Map::new();
@@ -320,14 +317,8 @@ mod tests {
             map
         };
         let params = Params::Map(object.clone());
-        assert_eq!(
-            serde_json::to_string(&params).unwrap(),
-            r#"{"key":"value"}"#
-        );
-        assert_eq!(
-            serde_json::from_str::<Params>(r#"{"key":"value"}"#).unwrap(),
-            params
-        );
+        assert_eq!(serde_json::to_string(&params).unwrap(), r#"{"key":"value"}"#);
+        assert_eq!(serde_json::from_str::<Params>(r#"{"key":"value"}"#).unwrap(), params);
 
         let params = Params::Array(vec![
             Value::Null,
@@ -345,10 +336,7 @@ mod tests {
             r#"[null,true,-1,1,1.2,"hello",[],[1,true],{"key":"value"}]"#
         );
         assert_eq!(
-            serde_json::from_str::<Params>(
-                r#"[null,true,-1,1,1.2,"hello",[],[1,true],{"key":"value"}]"#
-            )
-            .unwrap(),
+            serde_json::from_str::<Params>(r#"[null,true,-1,1,1.2,"hello",[],[1,true],{"key":"value"}]"#).unwrap(),
             params
         );
     }
@@ -475,35 +463,22 @@ mod tests {
         for (method_call, expect) in method_call_cases() {
             let call_request = Request::Single(Call::MethodCall(method_call));
             assert_eq!(serde_json::to_string(&call_request).unwrap(), expect);
-            assert_eq!(
-                serde_json::from_str::<Request>(expect).unwrap(),
-                call_request
-            );
+            assert_eq!(serde_json::from_str::<Request>(expect).unwrap(), call_request);
         }
 
         for (notification, expect) in notification_cases() {
             let notification_request = Request::Single(Call::Notification(notification));
-            assert_eq!(
-                serde_json::to_string(&notification_request).unwrap(),
-                expect
-            );
-            assert_eq!(
-                serde_json::from_str::<Request>(expect).unwrap(),
-                notification_request
-            );
+            assert_eq!(serde_json::to_string(&notification_request).unwrap(), expect);
+            assert_eq!(serde_json::from_str::<Request>(expect).unwrap(), notification_request);
         }
 
         let batch_request = Request::Batch(vec![
             Call::MethodCall(MethodCall::new("foo", None, 1.into())),
             Call::MethodCall(MethodCall::new("bar", None, 2.into())),
         ]);
-        let batch_expect =
-            r#"[{"jsonrpc":"2.0","method":"foo","id":1},{"jsonrpc":"2.0","method":"bar","id":2}]"#;
+        let batch_expect = r#"[{"jsonrpc":"2.0","method":"foo","id":1},{"jsonrpc":"2.0","method":"bar","id":2}]"#;
         assert_eq!(serde_json::to_string(&batch_request).unwrap(), batch_expect);
-        assert_eq!(
-            serde_json::from_str::<Request>(&batch_expect).unwrap(),
-            batch_request
-        );
+        assert_eq!(serde_json::from_str::<Request>(&batch_expect).unwrap(), batch_request);
     }
 
     #[test]
