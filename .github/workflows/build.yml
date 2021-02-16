@@ -28,7 +28,7 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache Dependencies & Build Outputs
-        uses: actions/cache@v2
+        uses: actions/cache@v2.1.4
         with:
           path: |
             ~/.cargo
