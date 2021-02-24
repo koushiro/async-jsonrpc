@@ -1,6 +1,7 @@
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 /// Represents JSON-RPC request id.
 ///
@@ -58,6 +59,15 @@ impl From<u64> for Id {
 impl From<String> for Id {
     fn from(id: String) -> Self {
         Self::Str(id)
+    }
+}
+
+impl From<Id> for Value {
+    fn from(id: Id) -> Self {
+        match id {
+            Id::Num(id) => Self::Number(id.into()),
+            Id::Str(id) => Self::String(id),
+        }
     }
 }
 
