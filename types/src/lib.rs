@@ -5,7 +5,9 @@
 //! # Usage
 //! ## Creates JSON-RPC 1.0 request
 //!
-#![cfg_attr(feature = "v1", doc = r##"
+#![cfg_attr(
+    feature = "v1",
+    doc = r##"
 ```rust
 use jsonrpc_types::v1::{Call, MethodCall, Notification, Request};
 
@@ -35,11 +37,14 @@ assert_eq!(
     r#"[{"method":"foo","params":[],"id":1},{"method":"bar","params":[],"id":2}]"#
 );
 ```
-"##)]
+"##
+)]
 //!
 //! ## Creates JSON-RPC 1.0 response
 //!
-#![cfg_attr(feature = "v1", doc = r##"
+#![cfg_attr(
+    feature = "v1",
+    doc = r##"
 ```rust
 use jsonrpc_types::v1::{Value, Error, Output, Response};
 // Creates a JSON-RPC 1.0 success response
@@ -65,11 +70,14 @@ assert_eq!(
     r#"[{"result":true,"error":null,"id":1},{"result":false,"error":null,"id":2}]"#
 );
 ```
-"##)]
+"##
+)]
 //!
 //! ## Creates JSON-RPC 2.0 request
 //!
-#![cfg_attr(feature = "v2", doc = r##"
+#![cfg_attr(
+    feature = "v2",
+    doc = r##"
 ```rust
 use jsonrpc_types::v2::{Params, MethodCall, Notification, Call, Request};
 
@@ -99,11 +107,14 @@ assert_eq!(
     r#"[{"jsonrpc":"2.0","method":"foo","params":[],"id":1},{"jsonrpc":"2.0","method":"bar","params":[],"id":2}]"#
 );
 ```
-"##)]
+"##
+)]
 //!
 //! ## Creates JSON-RPC 2.0 response
 //!
-#![cfg_attr(feature = "v2", doc = r##"
+#![cfg_attr(
+    feature = "v2",
+    doc = r##"
 ```rust
 use jsonrpc_types::v2::{Value, Error, Success, Failure, Output, Response};
 
@@ -132,7 +143,8 @@ assert_eq!(
     r#"[{"jsonrpc":"2.0","result":true,"id":1},{"jsonrpc":"2.0","result":false,"id":2}]"#
 );
 ```
-"##)]
+"##
+)]
 //!
 //! # Crate features
 //!
