@@ -1,9 +1,12 @@
-use std::{fmt, marker::PhantomData};
+#[cfg(not(feature = "std"))]
+use alloc::{string::String, vec::Vec};
+
+use core::{fmt, marker::PhantomData};
 
 use serde::{de, ser, Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::id::Id;
+use crate::v1::Id;
 
 /// Represents JSON-RPC 1.0 request parameters.
 pub type Params = Vec<Value>;
