@@ -1,13 +1,11 @@
-use std::fmt;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+use core::fmt;
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{
-    error::{Error, ErrorCode},
-    id::Id,
-    v2::version::Version,
-};
+use crate::v2::{Error, ErrorCode, Id, Version};
 
 /// Represents JSON-RPC 2.0 success response.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

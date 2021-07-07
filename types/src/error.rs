@@ -1,4 +1,10 @@
-use std::{error, fmt};
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+};
+
+use core::fmt;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
@@ -76,7 +82,7 @@ impl ErrorCode {
             ErrorCode::InternalError => "Internal error",
             ErrorCode::ServerError(_) => "Server error",
         };
-        desc.to_string()
+        desc.into()
     }
 }
 
@@ -103,7 +109,8 @@ impl fmt::Display for Error {
     }
 }
 
-impl error::Error for Error {}
+#[cfg(feature = "std")]
+impl std::error::Error for Error {}
 
 impl Error {
     /// Wraps given `ErrorCode`.
@@ -164,7 +171,7 @@ impl Error {
     pub fn invalid_version() -> Self {
         Error {
             code: ErrorCode::InvalidRequest,
-            message: "Unsupported JSON-RPC protocol version".to_owned(),
+            message: "Unsupported JSON-RPC protocol version".into(),
             data: None,
         }
     }

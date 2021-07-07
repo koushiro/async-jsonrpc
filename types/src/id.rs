@@ -1,4 +1,6 @@
-use std::fmt;
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
+use core::fmt;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

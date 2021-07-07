@@ -148,7 +148,13 @@ assert_eq!(
 //!
 //! # Crate features
 //!
-//! **v2** features are enabled by default.
+//! **std** and **v2** features are enabled by default.
+//!
+//! ## Ecosystem features
+//!
+//! * **std** -
+//!   When enabled, this crate will use the standard library.
+//!   Currently, disabling this feature will always use `alloc` library.
 //!
 //! ## JSON-RPC version features
 //!
@@ -160,7 +166,11 @@ assert_eq!(
 
 #![deny(unused_imports)]
 #![deny(missing_docs)]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(doc_cfg, feature(doc_cfg))]
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
 
 /// JSON-RPC 1.0 types.
 #[cfg(feature = "v1")]

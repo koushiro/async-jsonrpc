@@ -12,7 +12,8 @@ keywords = ["jsonrpc", "rpc", "types"]
 categories = ["network-programming", "web-programming"]
 
 [features]
-default = ["v2"]
+default = ["std", "v2"]
+std = ["serde/std", "serde_json/std"]
 v1 = []
 v2 = []
 
@@ -23,5 +24,5 @@ all-features = true
 rustdoc-args = ["--cfg", "doc_cfg"]
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde = { version = "1.0", default-features = false, features = ["alloc", "derive"] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
