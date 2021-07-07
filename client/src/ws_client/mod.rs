@@ -16,7 +16,7 @@ use futures::{
     sink::SinkExt,
     stream::{Stream, StreamExt},
 };
-use jsonrpc_types::*;
+use jsonrpc_types::v2::*;
 
 pub use self::builder::WsClientBuilder;
 use crate::{

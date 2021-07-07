@@ -1,15 +1,17 @@
-/// JSON-RPC 1.0 request objects
-mod request;
-/// JSON-RPC 1.0 response objects
-mod response;
+/// JSON-RPC 1.0 error objects.
+pub mod error;
+/// JSON-RPC 1.0 id objects.
+pub mod id;
+/// JSON-RPC 1.0 request objects.
+pub mod request;
+/// JSON-RPC 1.0 response objects.
+pub mod response;
 
 pub use self::{
-    request::{Call, MethodCall, MethodCallRequest, Notification, Params, Request},
-    response::{Output, Response},
-};
-pub use crate::{
     error::{Error, ErrorCode},
     id::Id,
+    request::{Call, MethodCall, MethodCallRequest, Notification, Params, Request},
+    response::{Output, Response},
 };
 
 // Re-exports

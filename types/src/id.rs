@@ -3,7 +3,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// Represents JSON-RPC request id.
+/// Represents JSON-RPC request/response id.
 ///
 /// An identifier established by the Client that MUST contain a String, Number,
 /// or NULL value if included, If it is not included it is assumed to be a notification.

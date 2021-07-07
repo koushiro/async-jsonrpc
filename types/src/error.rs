@@ -3,7 +3,7 @@ use std::{error, fmt};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-/// JSON-RPC Error Code.
+/// Represents JSON-RPC error code.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ErrorCode {
     /// Invalid JSON was received by the server.
@@ -80,7 +80,7 @@ impl ErrorCode {
     }
 }
 
-/// JSON-RPC Error Object.
+/// Represents JSON-RPC error object.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Error {
