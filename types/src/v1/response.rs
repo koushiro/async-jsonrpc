@@ -1,4 +1,6 @@
-use std::{fmt, marker::PhantomData};
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+use core::{fmt, marker::PhantomData};
 
 use serde::{
     de::{self, DeserializeOwned},
@@ -6,7 +8,7 @@ use serde::{
 };
 use serde_json::Value;
 
-use crate::{
+use crate::v1::{
     error::{Error, ErrorCode},
     id::Id,
 };

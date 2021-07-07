@@ -1,9 +1,11 @@
-use std::fmt;
+#[cfg(not(feature = "std"))]
+use alloc::{string::String, vec::Vec};
+use core::fmt;
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{from_value, Map, Value};
 
-use crate::{error::Error, id::Id, v2::version::Version};
+use crate::v2::{Error, Id, Version};
 
 /// Represents JSON-RPC 2.0 request parameters.
 ///
@@ -20,7 +22,7 @@ pub enum Params {
 
 impl Default for Params {
     fn default() -> Self {
-        Params::Array(vec![])
+        Params::Array(Vec::new())
     }
 }
 
