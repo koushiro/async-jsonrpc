@@ -27,13 +27,13 @@ jobs:
           override: true
           components: rustfmt, clippy
 
-#      - name: Cache Dependencies & Build Outputs
-#        uses: actions/cache@v2
-#        with:
-#          path: |
-#            ~/.cargo
-#            target
-#          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache Dependencies & Build Outputs
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Check Code Format
         run: cargo fmt --all -- --check
@@ -41,10 +41,10 @@ jobs:
       - name: Code Lint
         run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Test Types
-        run: cargo test -p jsonrpc-types
+      - name: Test Crate `jsonrpc-types`
+        run: cargo test -p jsonrpc-types --all-features
 
-      - name: Test Client
+      - name: Test Crate `async-jsonrpc-client`
         run: |
           cargo test --manifest-path client/Cargo.toml --no-default-features --features 'http-async-std'
           cargo test --manifest-path client/Cargo.toml --no-default-features --features 'http-tokio'

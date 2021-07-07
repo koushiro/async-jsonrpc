@@ -11,7 +11,7 @@ use futures::{
     sink::SinkExt,
     stream::{SplitSink, SplitStream, StreamExt},
 };
-use jsonrpc_types::*;
+use jsonrpc_types::v2::*;
 
 use crate::{
     error::{WsClientError, WsError},

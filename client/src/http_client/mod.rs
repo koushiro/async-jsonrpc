@@ -7,7 +7,7 @@ use std::sync::{
     Arc,
 };
 
-use jsonrpc_types::*;
+use jsonrpc_types::v2::*;
 use serde::{de::DeserializeOwned, Serialize};
 
 pub use self::builder::HttpClientBuilder;

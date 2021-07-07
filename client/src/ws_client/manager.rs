@@ -1,7 +1,7 @@
 use std::collections::hash_map::{Entry, HashMap};
 
 use futures::channel::{mpsc, oneshot};
-use jsonrpc_types::*;
+use jsonrpc_types::v2::*;
 
 use crate::error::WsClientError;
 

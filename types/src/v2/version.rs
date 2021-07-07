@@ -2,10 +2,10 @@ use std::fmt;
 
 use serde::{de, ser};
 
-/// JSON-RPC Protocol Version.
+/// Represents JSON-RPC protocol version.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Version {
-    /// JSON-RPC 2.0
+    /// Represents JSON-RPC 2.0 version.
     V2_0,
 }
 
