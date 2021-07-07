@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use futures::stream::Stream;
-use jsonrpc_types::*;
+use jsonrpc_types::v2::*;
 
 /// A JSON-RPC 2.0 transport.
 #[async_trait::async_trait]
