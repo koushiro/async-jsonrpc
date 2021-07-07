@@ -58,7 +58,7 @@ jobs:
         run: cargo test -p jsonrpc-types --all-features
 
       - name: Build (no_std)
-        run: cargo build --no-default-features --features 'v1,v2' --target thumbv6m-none-eabi
+        run: cargo build -p jsonrpc-types --no-default-features --features 'v1,v2' --target thumbv6m-none-eabi
 
   jsonrpc-client:
     name: Build `async-jsonrpc-client`
