@@ -49,7 +49,7 @@ async-std = { version = "1.9", optional = true }
 tokio = { version = "1.2", features = ["time"], optional = true }
 
 [dev-dependencies]
-env_logger = "0.8"
+env_logger = "0.9"
 tide = { version = "0.16", default-features = false, features = ["h1-server"] }
 async-std = { version = "1.9", features = ["attributes"] }
 hyper = { version = "0.14", features = ["server"] }
