@@ -480,7 +480,7 @@ mod tests {
         ]);
         let batch_expect = r#"[{"jsonrpc":"2.0","method":"foo","id":1},{"jsonrpc":"2.0","method":"bar","id":2}]"#;
         assert_eq!(serde_json::to_string(&batch_request).unwrap(), batch_expect);
-        assert_eq!(serde_json::from_str::<Request>(&batch_expect).unwrap(), batch_request);
+        assert_eq!(serde_json::from_str::<Request>(batch_expect).unwrap(), batch_request);
     }
 
     #[test]
