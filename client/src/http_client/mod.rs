@@ -84,6 +84,13 @@ impl HttpClient {
             response.await
         };
         let mut response = response.map_err(|err| err.into_inner())?;
+        if !response.status().is_success() {
+            log::debug!("HTTP response status {}", response.status());
+            return Err(HttpClientError::Http(anyhow::anyhow!(
+                "Unexpected response status code: {}",
+                response.status()
+            )));
+        }
 
         let response = response.body_string().await.map_err(|err| err.into_inner())?;
         log::debug!("Response: {}", response);
