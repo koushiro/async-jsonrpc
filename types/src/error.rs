@@ -3,7 +3,6 @@ use alloc::{
     format,
     string::{String, ToString},
 };
-
 use core::fmt;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};

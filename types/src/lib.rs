@@ -3,34 +3,33 @@
 //! [JSON-RPC 2.0 spec](https://www.jsonrpc.org/specification).
 //!
 //! # Usage
-//! ## Creates JSON-RPC 1.0 request
 //!
 #![cfg_attr(
     feature = "v1",
     doc = r##"
-```rust
-use jsonrpc_types::v1::{Call, MethodCall, Notification, Request};
+## Creates JSON-RPC 1.0 request
 
-// Creates a JSON-RPC 1.0 method call request
-let method_call = MethodCall::new("foo", vec![], 1.into());
-let method_call_req = Request::Single(Call::MethodCall(method_call));
+```rust
+use jsonrpc_types::v1::{Notification, Request, RequestObj};
+
+// Creates a JSON-RPC 1.0 request call
+let request = RequestObj::Single(Request::new("foo", vec![], 1.into()));
 assert_eq!(
-    serde_json::to_string(&method_call_req).unwrap(),
+    serde_json::to_string(&request).unwrap(),
     r#"{"method":"foo","params":[],"id":1}"#
 );
 
-// Creates a JSON-RPC 1.0 notification request
+// Creates a JSON-RPC 1.0 notification
 let notification = Notification::new("foo", vec![]);
-let notification_req = Request::Single(Call::Notification(notification.clone()));
 assert_eq!(
-    serde_json::to_string(&notification_req).unwrap(),
+    serde_json::to_string(&notification).unwrap(),
     r#"{"method":"foo","params":[],"id":null}"#
 );
 
 // Creates a JSON-RPC 1.0 batch request
-let batch_request = Request::Batch(vec![
-    Call::MethodCall(MethodCall::new("foo", vec![], 1.into())),
-    Call::MethodCall(MethodCall::new("bar", vec![], 2.into())),
+let batch_request = RequestObj::Batch(vec![
+    Request::new("foo", vec![], 1.into()),
+    Request::new("bar", vec![], 2.into()),
 ]);
 assert_eq!(
     serde_json::to_string(&batch_request).unwrap(),
@@ -40,31 +39,30 @@ assert_eq!(
 "##
 )]
 //!
-//! ## Creates JSON-RPC 1.0 response
-//!
 #![cfg_attr(
     feature = "v1",
     doc = r##"
+## Creates JSON-RPC 1.0 response
+
 ```rust
-use jsonrpc_types::v1::{Value, Error, Output, Response};
+use jsonrpc_types::v1::{Value, Error, Response, ResponseObj};
 // Creates a JSON-RPC 1.0 success response
-let success_response = Output::success(Value::Bool(true), 1.into());
-let response1 = Response::Single(success_response.clone());
+let response1 = ResponseObj::Single(Response::success(Value::Bool(true), 1.into()));
 assert_eq!(
     serde_json::to_string(&response1).unwrap(),
     r#"{"result":true,"error":null,"id":1}"#
 );
 // Creates a JSON-RPC 1.0 failure response
-let failure_response = Output::<Value>::failure(Error::invalid_request(), None);
-let response2 = Response::Single(failure_response.clone());
+let response2 = ResponseObj::Single(Response::<Value>::failure(Error::invalid_request(), None));
 assert_eq!(
     serde_json::to_string(&response2).unwrap(),
     r#"{"result":null,"error":{"code":-32600,"message":"Invalid request"},"id":null}"#
 );
 // Creates a JSON-RPC 1.0 batch response
-let success1 = Output::success(Value::Bool(true), 1.into());
-let success2 = Output::success(Value::Bool(false), 2.into());
-let batch_response = Response::Batch(vec![success1, success2]);
+let batch_response = ResponseObj::Batch(vec![
+    Response::success(Value::Bool(true), 1.into()),
+    Response::success(Value::Bool(false), 2.into()),
+]);
 assert_eq!(
     serde_json::to_string(&batch_response).unwrap(),
     r#"[{"result":true,"error":null,"id":1},{"result":false,"error":null,"id":2}]"#
@@ -73,11 +71,11 @@ assert_eq!(
 "##
 )]
 //!
-//! ## Creates JSON-RPC 2.0 request
-//!
 #![cfg_attr(
     feature = "v2",
     doc = r##"
+## Creates JSON-RPC 2.0 request
+
 ```rust
 use jsonrpc_types::v2::{Params, MethodCall, Notification, Call, Request};
 
@@ -110,11 +108,11 @@ assert_eq!(
 "##
 )]
 //!
-//! ## Creates JSON-RPC 2.0 response
-//!
 #![cfg_attr(
     feature = "v2",
     doc = r##"
+## Creates JSON-RPC 2.0 response
+
 ```rust
 use jsonrpc_types::v2::{Value, Error, Success, Failure, Output, Response};
 

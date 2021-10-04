@@ -91,7 +91,7 @@ mod tests {
         }
 
         assert_eq!(
-            serde_json::to_string(&vec![Id::Num(0), Id::Str("1".to_owned()), Id::Str("test".to_owned()),]).unwrap(),
+            serde_json::to_string(&vec![Id::Num(0), Id::Str("1".into()), Id::Str("test".into()),]).unwrap(),
             r#"[0,"1","test"]"#
         );
     }
