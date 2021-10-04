@@ -3,7 +3,6 @@ use alloc::{string::String, vec, vec::Vec};
 use core::{fmt, marker::PhantomData};
 
 use serde::{de, ser};
-use serde_json::Value;
 
 use crate::v1::{Id, Params, ParamsRef};
 
@@ -257,6 +256,7 @@ mod request_field {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
 
     fn notification_cases() -> Vec<(Notification, &'static str)> {
         vec![

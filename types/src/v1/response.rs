@@ -318,7 +318,6 @@ mod tests {
             r#"[{"error":{"code": -32700,"message": "Parse error"},"id":1}]"#,
             // r#"[]"#, // empty should be invalid
         ];
-
         for case in invalid_cases {
             let response = serde_json::from_str::<BatchResponse>(case);
             assert!(response.is_err());
