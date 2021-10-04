@@ -46,18 +46,21 @@ assert_eq!(
 
 ```rust
 use jsonrpc_types::v1::{Value, Error, Response, ResponseObj};
+
 // Creates a JSON-RPC 1.0 success response
 let response1 = ResponseObj::Single(Response::success(Value::Bool(true), 1.into()));
 assert_eq!(
     serde_json::to_string(&response1).unwrap(),
     r#"{"result":true,"error":null,"id":1}"#
 );
+
 // Creates a JSON-RPC 1.0 failure response
 let response2 = ResponseObj::Single(Response::<Value>::failure(Error::invalid_request(), None));
 assert_eq!(
     serde_json::to_string(&response2).unwrap(),
     r#"{"result":null,"error":{"code":-32600,"message":"Invalid request"},"id":null}"#
 );
+
 // Creates a JSON-RPC 1.0 batch response
 let batch_response = ResponseObj::Batch(vec![
     Response::success(Value::Bool(true), 1.into()),

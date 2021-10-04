@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 
 use serde_json::Value;
 
-/// JSON-RPC 1.0 id objects.
+/// JSON-RPC 1.0 id object.
 pub use crate::id::Id;
 
 /// Represents JSON-RPC 1.0 request parameters.
