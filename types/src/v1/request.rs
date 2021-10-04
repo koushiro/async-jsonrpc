@@ -3,7 +3,6 @@ use alloc::{string::String, vec, vec::Vec};
 use core::fmt;
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::v1::{Id, Params, ParamsRef};
 
@@ -150,6 +149,7 @@ impl Request {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
 
     fn request_cases() -> Vec<(Request, &'static str)> {
         vec![
