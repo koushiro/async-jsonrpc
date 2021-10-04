@@ -3,11 +3,12 @@
 //! [JSON-RPC 2.0 spec](https://www.jsonrpc.org/specification).
 //!
 //! # Usage
-//! ## Creates JSON-RPC 1.0 request
 //!
 #![cfg_attr(
     feature = "v1",
     doc = r##"
+## Creates JSON-RPC 1.0 request
+
 ```rust
 use jsonrpc_types::v1::{Call, MethodCall, Notification, Request};
 
@@ -40,11 +41,11 @@ assert_eq!(
 "##
 )]
 //!
-//! ## Creates JSON-RPC 1.0 response
-//!
 #![cfg_attr(
     feature = "v1",
     doc = r##"
+## Creates JSON-RPC 1.0 response
+
 ```rust
 use jsonrpc_types::v1::{Value, Error, Output, Response};
 // Creates a JSON-RPC 1.0 success response
@@ -73,11 +74,11 @@ assert_eq!(
 "##
 )]
 //!
-//! ## Creates JSON-RPC 2.0 request
-//!
 #![cfg_attr(
     feature = "v2",
     doc = r##"
+## Creates JSON-RPC 2.0 request
+
 ```rust
 use jsonrpc_types::v2::{Params, MethodCall, Notification, Call, Request};
 
@@ -110,11 +111,11 @@ assert_eq!(
 "##
 )]
 //!
-//! ## Creates JSON-RPC 2.0 response
-//!
 #![cfg_attr(
     feature = "v2",
     doc = r##"
+## Creates JSON-RPC 2.0 response
+
 ```rust
 use jsonrpc_types::v2::{Value, Error, Success, Failure, Output, Response};
 

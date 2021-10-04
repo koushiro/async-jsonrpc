@@ -8,15 +8,33 @@ use serde::{
 };
 use serde_json::Value;
 
-use crate::v1::{
-    error::{Error, ErrorCode},
-    id::Id,
-};
+use crate::v1::{Error, ErrorCode, Id};
 
-/// Represents success / failure output of JSON-RPC 1.0 response.
+/// JSON-RPC 1.0 Response Object.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(untagged)]
+pub enum ResponseObj<T = Value> {
+    /// Single response
+    Single(Response<T>),
+    /// Batch of responses (response to batch request)
+    Batch(BatchResponse<T>),
+}
+
+impl<T: Serialize> fmt::Display for ResponseObj<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let json = serde_json::to_string(self).expect("`ResponseObj` is serializable");
+        write!(f, "{}", json)
+    }
+}
+
+/// Represents JSON-RPC 1.0 batch response.
+pub type BatchResponse<T = Value> = Vec<Response<T>>;
+
+/// Represents JSON-RPC 1.0 success / failure response.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct Output<T = Value> {
+pub struct Response<T = Value> {
     /// Successful execution result.
     pub result: Option<T>,
     /// Failed execution error.
@@ -30,14 +48,14 @@ pub struct Output<T = Value> {
     pub id: Option<Id>,
 }
 
-impl<T: Serialize> fmt::Display for Output<T> {
+impl<T: Serialize> fmt::Display for Response<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let json = serde_json::to_string(self).expect("`Output` is serializable");
+        let json = serde_json::to_string(self).expect("`Response` is serializable");
         write!(f, "{}", json)
     }
 }
 
-impl<'de, T: Deserialize<'de>> de::Deserialize<'de> for Output<T> {
+impl<'de, T: Deserialize<'de>> de::Deserialize<'de> for Response<T> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: de::Deserializer<'de>,
@@ -45,14 +63,14 @@ impl<'de, T: Deserialize<'de>> de::Deserialize<'de> for Output<T> {
         use self::response_field::{Field, FIELDS};
 
         struct Visitor<'de, T> {
-            marker: PhantomData<Output<T>>,
+            marker: PhantomData<Response<T>>,
             lifetime: PhantomData<&'de ()>,
         }
         impl<'de, T: Deserialize<'de>> de::Visitor<'de> for Visitor<'de, T> {
-            type Value = Output<T>;
+            type Value = Response<T>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                formatter.write_str("struct Output")
+                formatter.write_str("struct Response")
             }
 
             fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
@@ -94,24 +112,24 @@ impl<'de, T: Deserialize<'de>> de::Deserialize<'de> for Output<T> {
                     (None, Some(error), id) => (None, Some(error), id),
                     _ => return Err(de::Error::custom("Invalid JSON-RPC 1.0 response")),
                 };
-                Ok(Output { result, error, id })
+                Ok(Response { result, error, id })
             }
         }
 
         de::Deserializer::deserialize_struct(
             deserializer,
-            "Output",
+            "Response",
             FIELDS,
             Visitor {
-                marker: PhantomData::<Output<T>>,
+                marker: PhantomData::<Response<T>>,
                 lifetime: PhantomData,
             },
         )
     }
 }
 
-impl<T: Serialize + DeserializeOwned> Output<T> {
-    /// Creates a JSON-RPC 1.0 success response output.
+impl<T: Serialize + DeserializeOwned> Response<T> {
+    /// Creates a JSON-RPC 1.0 success response.
     pub fn success(result: T, id: Id) -> Self {
         Self {
             result: Some(result),
@@ -120,7 +138,7 @@ impl<T: Serialize + DeserializeOwned> Output<T> {
         }
     }
 
-    /// Creates a JSON-RPC 1.0 failure response output.
+    /// Creates a JSON-RPC 1.0 failure response.
     pub fn failure(error: Error, id: Option<Id>) -> Self {
         Self {
             result: None,
@@ -131,37 +149,19 @@ impl<T: Serialize + DeserializeOwned> Output<T> {
 
     /// Creates a new failure response output indicating malformed request.
     pub fn invalid_request(id: Option<Id>) -> Self {
-        Output::failure(Error::new(ErrorCode::InvalidRequest), id)
+        Self::failure(Error::new(ErrorCode::InvalidRequest), id)
     }
 }
 
-impl<T: Serialize + DeserializeOwned> From<Output<T>> for Result<T, Error> {
+impl<T: Serialize + DeserializeOwned> From<Response<T>> for Result<T, Error> {
     // Convert into a result.
     // Will be `Ok` if it is a `SuccessResponse` and `Err` if `FailureResponse`.
-    fn from(output: Output<T>) -> Result<T, Error> {
-        match (output.result, output.error) {
+    fn from(resp: Response<T>) -> Result<T, Error> {
+        match (resp.result, resp.error) {
             (Some(result), None) => Ok(result),
             (None, Some(error)) => Err(error),
             _ => unreachable!("Invalid JSON-RPC 1.0 Response"),
         }
-    }
-}
-
-/// JSON-RPC 1.0 Response object.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[serde(untagged)]
-pub enum Response<T = Value> {
-    /// Single response
-    Single(Output<T>),
-    /// Response to batch request (batch of responses)
-    Batch(Vec<Output<T>>),
-}
-
-impl<T: Serialize> fmt::Display for Response<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let json = serde_json::to_string(self).expect("`Response` is serializable");
-        write!(f, "{}", json)
     }
 }
 
@@ -210,11 +210,11 @@ mod response_field {
 mod tests {
     use super::*;
 
-    fn response_output_cases() -> Vec<(Output, &'static str)> {
+    fn response_cases() -> Vec<(Response, &'static str)> {
         vec![
             (
-                // JSON-RPC 1.0 success response output
-                Output {
+                // JSON-RPC 1.0 success response
+                Response {
                     result: Some(Value::Bool(true)),
                     error: None,
                     id: Some(Id::Num(1)),
@@ -222,8 +222,8 @@ mod tests {
                 r#"{"result":true,"error":null,"id":1}"#,
             ),
             (
-                // JSON-RPC 1.0 failure response output
-                Output {
+                // JSON-RPC 1.0 failure response
+                Response {
                     result: None,
                     error: Some(Error::parse_error()),
                     id: Some(Id::Num(1)),
@@ -231,8 +231,8 @@ mod tests {
                 r#"{"result":null,"error":{"code":-32700,"message":"Parse error"},"id":1}"#,
             ),
             (
-                // JSON-RPC 1.0 failure response output
-                Output {
+                // JSON-RPC 1.0 failure response
+                Response {
                     result: None,
                     error: Some(Error::parse_error()),
                     id: None,
@@ -243,44 +243,26 @@ mod tests {
     }
 
     #[test]
-    fn response_output_serialization() {
-        for (success_response, expect) in response_output_cases() {
-            let ser = serde_json::to_string(&success_response).unwrap();
-            assert_eq!(ser, expect);
-            let de = serde_json::from_str::<Output>(expect).unwrap();
-            assert_eq!(de, success_response);
-        }
-    }
-
-    #[test]
     fn response_serialization() {
-        for (output, expect) in response_output_cases() {
-            let response = Response::Single(output);
-            assert_eq!(serde_json::to_string(&response).unwrap(), expect);
-            assert_eq!(serde_json::from_str::<Response>(expect).unwrap(), response);
+        for (response, expect) in response_cases() {
+            let ser = serde_json::to_string(&response).unwrap();
+            assert_eq!(ser, expect);
+            let de = serde_json::from_str::<Response>(expect).unwrap();
+            assert_eq!(de, response);
         }
 
-        let batch_response = Response::Batch(vec![
-            Output {
-                result: Some(Value::Bool(true)),
-                error: None,
-                id: Some(Id::Num(1)),
-            },
-            Output {
-                result: Some(Value::Bool(false)),
-                error: None,
-                id: Some(Id::Num(2)),
-            },
-        ]);
-        let batch_expect = r#"[{"result":true,"error":null,"id":1},{"result":false,"error":null,"id":2}]"#;
-        assert_eq!(serde_json::to_string(&batch_response).unwrap(), batch_expect);
-        assert_eq!(serde_json::from_str::<Response>(&batch_expect).unwrap(), batch_response);
-    }
+        // JSON-RPC 1.0 valid response
+        let valid_cases = vec![
+            r#"{"result":true,"error":null,"id":1}"#,
+            r#"{"result":null,"error":{"code": -32700,"message": "Parse error"},"id":1}"#,
+        ];
+        for case in valid_cases {
+            let response = serde_json::from_str::<Response>(case);
+            assert!(response.is_ok());
+        }
 
-    #[test]
-    fn invalid_response() {
-        let cases = vec![
-            // JSON-RPC 1.0 invalid response
+        // JSON-RPC 1.0 invalid response
+        let invalid_cases = vec![
             r#"{"result":true,"error":null,"id":1,unknown:[]}"#,
             r#"{"result":true,"error":{"code": -32700,"message": "Parse error"},"id":1}"#,
             r#"{"result":true,"error":{"code": -32700,"message": "Parse error"}}"#,
@@ -289,23 +271,57 @@ mod tests {
             r#"{"unknown":[]}"#,
         ];
 
-        for case in cases {
+        for case in invalid_cases {
             let response = serde_json::from_str::<Response>(case);
             assert!(response.is_err());
         }
     }
 
     #[test]
-    fn valid_response() {
-        let cases = vec![
-            // JSON-RPC 1.0 valid response
-            r#"{"result":true,"error":null,"id":1}"#,
-            r#"{"result":null,"error":{"code": -32700,"message": "Parse error"},"id":1}"#,
+    fn batch_response_serialization() {
+        let batch_response = vec![
+            Response {
+                result: Some(Value::Bool(true)),
+                error: None,
+                id: Some(Id::Num(1)),
+            },
+            Response {
+                result: Some(Value::Bool(false)),
+                error: None,
+                id: Some(Id::Num(2)),
+            },
+        ];
+        let batch_expect = r#"[{"result":true,"error":null,"id":1},{"result":false,"error":null,"id":2}]"#;
+        assert_eq!(serde_json::to_string(&batch_response).unwrap(), batch_expect);
+        assert_eq!(
+            serde_json::from_str::<BatchResponse>(&batch_expect).unwrap(),
+            batch_response
+        );
+
+        // JSON-RPC 1.0 valid batch response
+        let valid_cases = vec![
+            r#"[{"result":true,"error":null,"id":1}]"#,
+            r#"[{"result":null,"error":{"code": -32700,"message": "Parse error"},"id":1}]"#,
+            r#"[{"result":true,"error":null,"id":1}, {"result":null,"error":{"code": -32700,"message": "Parse error"},"id":1}]"#,
+        ];
+        for case in valid_cases {
+            let response = serde_json::from_str::<BatchResponse>(case);
+            assert!(response.is_ok());
+        }
+
+        // JSON-RPC 1.0 invalid batch response
+        let invalid_cases = vec![
+            r#"[{"result":true,"error":null,"id":1}"#,
+            r#"[{"result":true,"error":{"code": -32700,"message": "Parse error"},"id":1}]"#,
+            r#"[{"result":true,"error":{"code": -32700,"message": "Parse error"}}]"#,
+            r#"[{"result":true,"id":1}]"#,
+            r#"[{"error":{"code": -32700,"message": "Parse error"},"id":1}]"#,
+            // r#"[]"#, // empty should be invalid
         ];
 
-        for case in cases {
-            let response = serde_json::from_str::<Response>(case);
-            assert!(response.is_ok());
+        for case in invalid_cases {
+            let response = serde_json::from_str::<BatchResponse>(case);
+            assert!(response.is_err());
         }
     }
 }
