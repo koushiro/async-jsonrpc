@@ -1,5 +1,5 @@
 #[cfg(not(feature = "std"))]
-use alloc::{string::String, vec, vec::Vec};
+use alloc::{string::String, vec::Vec};
 use core::fmt;
 
 use serde::{Deserialize, Serialize};
