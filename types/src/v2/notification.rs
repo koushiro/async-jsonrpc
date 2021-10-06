@@ -17,7 +17,7 @@ pub type BatchNotificationRef<'a> = Vec<NotificationRef<'a>>;
 /// As such, the Client would not be aware of any errors (like e.g. "Invalid params","Internal error").
 ///
 /// The Server MUST NOT reply to a Notification, including those that are within a batch request.
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct NotificationRef<'a> {
     /// A String specifying the version of the JSON-RPC protocol.
@@ -78,7 +78,7 @@ pub type BatchNotification = Vec<Notification>;
 /// As such, the Client would not be aware of any errors (like e.g. "Invalid params","Internal error").
 ///
 /// The Server MUST NOT reply to a Notification, including those that are within a batch request.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Notification {
     /// A String specifying the version of the JSON-RPC protocol.
@@ -130,7 +130,7 @@ impl Notification {
 // ################################################################################################
 
 /// Parameters of the subscription notification.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SubscriptionNotificationParams<T = Value> {
     /// Subscription id, as communicated during the subscription.
@@ -150,7 +150,7 @@ impl<T: Serialize + DeserializeOwned> SubscriptionNotificationParams<T> {
 }
 
 /// Server notification about something the client is subscribed to.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SubscriptionNotification<T = Value> {
     /// A String specifying the version of the JSON-RPC protocol.
