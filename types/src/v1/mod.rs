@@ -9,6 +9,9 @@ pub mod request;
 /// JSON-RPC 1.0 response objects.
 pub mod response;
 
+// Re-exports
+pub use serde_json::Value;
+
 pub use self::{
     error::{Error, ErrorCode},
     notification::{BatchNotification, BatchNotificationRef, Notification, NotificationRef},
@@ -16,6 +19,3 @@ pub use self::{
     request::{BatchRequest, BatchRequestRef, Request, RequestObj, RequestRef, RequestRefObj},
     response::{BatchResponse, Response, ResponseObj},
 };
-
-// Re-exports
-pub use serde_json::Value;

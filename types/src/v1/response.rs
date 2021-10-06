@@ -28,6 +28,18 @@ impl<T: Serialize> fmt::Display for ResponseObj<T> {
     }
 }
 
+impl<T> From<Response<T>> for ResponseObj<T> {
+    fn from(response: Response<T>) -> Self {
+        Self::Single(response)
+    }
+}
+
+impl<T> From<BatchResponse<T>> for ResponseObj<T> {
+    fn from(batch: BatchResponse<T>) -> Self {
+        Self::Batch(batch)
+    }
+}
+
 /// Represents JSON-RPC 1.0 batch response.
 pub type BatchResponse<T = Value> = Vec<Response<T>>;
 
@@ -147,9 +159,34 @@ impl<T: Serialize + DeserializeOwned> Response<T> {
         }
     }
 
-    /// Creates a new failure response output indicating malformed request.
+    /// Creates a JSON-RPC 1.0 failure response, indicating that the server has an error in parsing the JSON text.
+    pub fn parse_error(id: Option<Id>) -> Self {
+        Self::failure(Error::parse_error(), id)
+    }
+
+    /// Creates a JSON-RPC 1.0 failure response, indicating malformed request.
     pub fn invalid_request(id: Option<Id>) -> Self {
-        Self::failure(Error::new(ErrorCode::InvalidRequest), id)
+        Self::failure(Error::invalid_request(), id)
+    }
+
+    /// Creates a JSON-RPC 1.0 failure response, indicating that the request's method is not found.
+    pub fn method_not_found(id: Id) -> Self {
+        Self::failure(Error::method_not_found(), Some(id))
+    }
+
+    /// Creates a JSON-RPC 1.0 failure response, indicating that the request's parameters is invalid.
+    pub fn invalid_params(id: Id, msg: impl fmt::Display) -> Self {
+        Self::failure(Error::invalid_params(msg), Some(id))
+    }
+
+    /// Creates a JSON-RPC 1.0 failure response, indicating that the internal JSON-RPC error.
+    pub fn internal_error(id: Id) -> Self {
+        Self::failure(Error::internal_error(), Some(id))
+    }
+
+    /// Creates a JSON-RPC 1.0 failure response, indicating that implementation-defined server error.
+    pub fn server_error(id: Id, error: i64) -> Self {
+        Self::failure(Error::new(ErrorCode::ServerError(error)), Some(id))
     }
 }
 
@@ -214,29 +251,17 @@ mod tests {
         vec![
             (
                 // JSON-RPC 1.0 success response
-                Response {
-                    result: Some(Value::Bool(true)),
-                    error: None,
-                    id: Some(Id::Num(1)),
-                },
+                Response::success(Value::Bool(true), Id::Num(1)),
                 r#"{"result":true,"error":null,"id":1}"#,
             ),
             (
                 // JSON-RPC 1.0 failure response
-                Response {
-                    result: None,
-                    error: Some(Error::parse_error()),
-                    id: Some(Id::Num(1)),
-                },
+                Response::failure(Error::parse_error(), Some(Id::Num(1))),
                 r#"{"result":null,"error":{"code":-32700,"message":"Parse error"},"id":1}"#,
             ),
             (
                 // JSON-RPC 1.0 failure response
-                Response {
-                    result: None,
-                    error: Some(Error::parse_error()),
-                    id: None,
-                },
+                Response::failure(Error::parse_error(), None),
                 r#"{"result":null,"error":{"code":-32700,"message":"Parse error"},"id":null}"#,
             ),
         ]

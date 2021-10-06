@@ -148,27 +148,20 @@ impl Request {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::Value;
+
+    use super::*;
 
     fn request_cases() -> Vec<(Request, &'static str)> {
         vec![
             (
                 // JSON-RPC 1.0 request
-                Request {
-                    method: "foo".into(),
-                    params: vec![Value::from(1), Value::Bool(true)].into(),
-                    id: Id::Num(1),
-                },
+                Request::new("foo", vec![Value::from(1), Value::Bool(true)], Id::Num(1)),
                 r#"{"method":"foo","params":[1,true],"id":1}"#,
             ),
             (
                 // JSON-RPC 1.0 request without parameters
-                Request {
-                    method: "foo".into(),
-                    params: vec![].into(),
-                    id: Id::Num(1),
-                },
+                Request::new("foo", vec![], Id::Num(1)),
                 r#"{"method":"foo","params":[],"id":1}"#,
             ),
         ]
@@ -214,16 +207,8 @@ mod tests {
     #[test]
     fn batch_request_serialization() {
         let batch_request = vec![
-            Request {
-                method: "foo".into(),
-                params: vec![].into(),
-                id: Id::Num(1),
-            },
-            Request {
-                method: "bar".into(),
-                params: vec![].into(),
-                id: Id::Num(2),
-            },
+            Request::new("foo", vec![], Id::Num(1)),
+            Request::new("bar", vec![], Id::Num(2)),
         ];
         let batch_expect = r#"[{"method":"foo","params":[],"id":1},{"method":"bar","params":[],"id":2}]"#;
         assert_eq!(serde_json::to_string(&batch_request).unwrap(), batch_expect);

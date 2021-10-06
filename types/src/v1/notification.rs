@@ -255,25 +255,20 @@ mod request_field {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::Value;
+
+    use super::*;
 
     fn notification_cases() -> Vec<(Notification, &'static str)> {
         vec![
             (
                 // JSON-RPC 1.0 request notification
-                Notification {
-                    method: "foo".into(),
-                    params: vec![Value::from(1), Value::Bool(true)].into(),
-                },
+                Notification::new("foo", vec![Value::from(1), Value::Bool(true)]),
                 r#"{"method":"foo","params":[1,true],"id":null}"#,
             ),
             (
                 // JSON-RPC 1.0 request notification without parameters
-                Notification {
-                    method: "foo".into(),
-                    params: vec![].into(),
-                },
+                Notification::new("foo", vec![]),
                 r#"{"method":"foo","params":[],"id":null}"#,
             ),
         ]
