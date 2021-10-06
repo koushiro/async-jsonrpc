@@ -30,12 +30,12 @@ pub(crate) enum ToBackTaskMessage {
         method: String,
         params: Option<Params>,
         /// One-shot channel where to send back the response of the request.
-        send_back: oneshot::Sender<Result<Output, WsClientError>>,
+        send_back: oneshot::Sender<Result<Response, WsClientError>>,
     },
     BatchRequest {
         batch: Vec<(String, Option<Params>)>,
         /// One-shot channel where to send back the response of the batch request.
-        send_back: oneshot::Sender<Result<Vec<Output>, WsClientError>>,
+        send_back: oneshot::Sender<Result<BatchResponse, WsClientError>>,
     },
     Subscribe {
         subscribe_method: String,
@@ -78,7 +78,7 @@ impl WsClient {
     }
 
     /// Sends a `method call` request to the server.
-    async fn send_request(&self, method: impl Into<String>, params: Option<Params>) -> Result<Output, WsClientError> {
+    async fn send_request(&self, method: impl Into<String>, params: Option<Params>) -> Result<Response, WsClientError> {
         let method = method.into();
         log::debug!("[frontend] Send request: method={}, params={:?}", method, params);
 
@@ -114,7 +114,7 @@ impl WsClient {
     }
 
     /// Sends a batch of `method call` requests to the server.
-    async fn send_request_batch<I, M>(&self, batch: I) -> Result<Vec<Output>, WsClientError>
+    async fn send_request_batch<I, M>(&self, batch: I) -> Result<BatchResponse, WsClientError>
     where
         I: IntoIterator<Item = (M, Option<Params>)>,
         M: Into<String>,
@@ -268,7 +268,7 @@ impl<Notif> Stream for WsSubscription<Notif> {
 impl Transport for WsClient {
     type Error = WsClientError;
 
-    async fn request<M>(&self, method: M, params: Option<Params>) -> Result<Output, Self::Error>
+    async fn request<M>(&self, method: M, params: Option<Params>) -> Result<Response, Self::Error>
     where
         M: Into<String> + Send,
     {
@@ -278,7 +278,7 @@ impl Transport for WsClient {
 
 #[async_trait::async_trait]
 impl BatchTransport for WsClient {
-    async fn request_batch<I, M>(&self, batch: I) -> Result<Vec<Output>, <Self as Transport>::Error>
+    async fn request_batch<I, M>(&self, batch: I) -> Result<BatchResponse, <Self as Transport>::Error>
     where
         I: IntoIterator<Item = (M, Option<Params>)> + Send,
         I::IntoIter: Send,

@@ -1,4 +1,4 @@
-use async_jsonrpc_client::{BatchTransport, HttpClient, HttpClientError, Response, Transport};
+use async_jsonrpc_client::{BatchTransport, HttpClient, HttpClientError, ResponseObj, Transport};
 
 #[async_std::main]
 async fn main() -> Result<(), HttpClientError> {
@@ -7,12 +7,12 @@ async fn main() -> Result<(), HttpClientError> {
     let client = HttpClient::new("https://rpc.polkadot.io")?;
 
     let response = client.request("system_chain", None).await?;
-    log::info!("Response: {}", Response::Single(response));
+    log::info!("Response: {}", ResponseObj::Single(response));
 
     let response = client
         .request_batch(vec![("system_chain", None), ("system_chainType", None)])
         .await?;
-    log::info!("Response: {}", Response::Batch(response));
+    log::info!("Response: {}", ResponseObj::Batch(response));
 
     Ok(())
 }

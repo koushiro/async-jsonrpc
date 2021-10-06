@@ -5,8 +5,8 @@ use jsonrpc_types::v2::*;
 
 use crate::error::WsClientError;
 
-type PendingMethodCall = oneshot::Sender<Result<Output, WsClientError>>;
-type PendingBatchMethodCall = oneshot::Sender<Result<Vec<Output>, WsClientError>>;
+type PendingMethodCall = oneshot::Sender<Result<Response, WsClientError>>;
+type PendingBatchMethodCall = oneshot::Sender<Result<BatchResponse, WsClientError>>;
 type PendingSubscription = oneshot::Sender<Result<(Id, mpsc::Receiver<SubscriptionNotification>), WsClientError>>;
 type ActiveSubscription = mpsc::Sender<SubscriptionNotification>;
 type PendingUnsubscribe = oneshot::Sender<Result<bool, WsClientError>>;
