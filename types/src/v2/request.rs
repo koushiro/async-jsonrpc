@@ -267,11 +267,11 @@ mod tests {
         assert_eq!(serde_json::to_string(&batch_request_ref).unwrap(), batch_expect);
 
         assert_eq!(
-            serde_json::from_str::<BatchRequest>(&batch_expect).unwrap(),
+            serde_json::from_str::<BatchRequest>(batch_expect).unwrap(),
             batch_request
         );
         assert_eq!(
-            serde_json::from_str::<RequestObj>(&batch_expect).unwrap(),
+            serde_json::from_str::<RequestObj>(batch_expect).unwrap(),
             batch_request_obj
         );
     }

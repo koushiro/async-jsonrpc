@@ -125,19 +125,19 @@ impl HttpClient {
 impl Transport for HttpClient {
     type Error = HttpClientError;
 
-    async fn request<M>(&self, method: M, params: Option<Params>) -> Result<Output, Self::Error>
+    async fn request<M>(&self, method: M, params: Option<Params>) -> Result<Response, Self::Error>
     where
         M: Into<String> + Send,
     {
         let id = self.id.fetch_add(1, Ordering::AcqRel);
-        let call = MethodCall::new(method, params, Id::Num(id));
+        let call = Request::new(method, params, Id::Num(id));
         self.send_request(call).await
     }
 }
 
 #[async_trait::async_trait]
 impl BatchTransport for HttpClient {
-    async fn request_batch<I, M>(&self, batch: I) -> Result<Vec<Output>, <Self as Transport>::Error>
+    async fn request_batch<I, M>(&self, batch: I) -> Result<BatchResponse, <Self as Transport>::Error>
     where
         I: IntoIterator<Item = (M, Option<Params>)> + Send,
         I::IntoIter: Send,
@@ -147,7 +147,7 @@ impl BatchTransport for HttpClient {
             .into_iter()
             .map(|(method, params)| {
                 let id = self.id.fetch_add(1, Ordering::AcqRel);
-                MethodCall::new(method, params, Id::Num(id))
+                Request::new(method, params, Id::Num(id))
             })
             .collect::<Vec<_>>();
         self.send_request(calls).await

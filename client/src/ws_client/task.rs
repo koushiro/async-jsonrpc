@@ -45,7 +45,7 @@ impl WsSender {
         let method = method.into();
         let id = self.id;
         self.id = id.wrapping_add(1);
-        let call = Call::MethodCall(MethodCall::new(method, params, Id::Num(id)));
+        let call = Request::new(method, params, Id::Num(id));
         let request = serde_json::to_string(&call).expect("serialize call; qed");
         log::debug!("[backend] Send a method call: {}", request);
         self.send_message(Message::Text(request)).await?;
@@ -63,11 +63,11 @@ impl WsSender {
             let method = method.into();
             let id = self.id;
             self.id = id.wrapping_add(1);
-            let call = Call::MethodCall(MethodCall::new(method, params, Id::Num(id)));
+            let call = Request::new(method, params, Id::Num(id));
             ids.push(id);
             calls.push(call);
         }
-        let request = Request::Batch(calls);
+        let request = RequestObj::Batch(calls);
         let request = serde_json::to_string(&request).expect("serialize calls; qed");
         log::debug!("[backend] Send a batch of method calls: {}", request);
         self.send_message(Message::Text(request)).await?;
@@ -266,7 +266,7 @@ async fn handle_from_back_message(
 ) -> Result<(), WsClientError> {
     match msg {
         Message::Text(msg) => {
-            if let Ok(response) = serde_json::from_str::<Response>(&msg) {
+            if let Ok(response) = serde_json::from_str::<ResponseObj>(&msg) {
                 handle_response_message(response, manager)?
             } else if let Ok(notification) = serde_json::from_str::<SubscriptionNotification>(&msg) {
                 handle_subscription_notification_message(notification, manager);
@@ -289,22 +289,22 @@ async fn handle_from_back_message(
     Ok(())
 }
 
-fn handle_response_message(response: Response, manager: &mut TaskManager) -> Result<(), WsClientError> {
+fn handle_response_message(response: ResponseObj, manager: &mut TaskManager) -> Result<(), WsClientError> {
     match response {
-        Response::Single(output) => handle_single_output(output, manager),
-        Response::Batch(outputs) => handle_batch_output(outputs, manager),
+        ResponseObj::Single(response) => handle_single_output(response, manager),
+        ResponseObj::Batch(responses) => handle_batch_output(responses, manager),
     }
 }
 
-fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(), WsClientError> {
-    let response_id = response_id_of(&output)?;
+fn handle_single_output(response: Response, manager: &mut TaskManager) -> Result<(), WsClientError> {
+    let response_id = response_id_of(&response)?;
     match manager.request_status(&response_id) {
         RequestStatus::PendingMethodCall => {
             log::debug!("[backend] Handle response of method call: id={}", response_id);
             let send_back = manager
                 .complete_pending_method_call(response_id)
                 .ok_or(WsClientError::InvalidRequestId)?;
-            send_back.send(Ok(output)).expect("Send single response back");
+            send_back.send(Ok(response)).expect("Send single response back");
             Ok(())
         }
         RequestStatus::PendingSubscription => {
@@ -312,8 +312,8 @@ fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(),
             let send_back = manager
                 .complete_pending_subscription(response_id)
                 .ok_or(WsClientError::InvalidRequestId)?;
-            let subscription_id = match output {
-                Output::Success(success) => match serde_json::from_value::<Id>(success.result) {
+            let subscription_id = match response {
+                Response::Success(success) => match serde_json::from_value::<Id>(success.result) {
                     Ok(id) => id,
                     Err(err) => {
                         send_back
@@ -322,7 +322,7 @@ fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(),
                         return Ok(());
                     }
                 },
-                Output::Failure(_) => {
+                Response::Failure(_) => {
                     send_back
                         .send(Err(WsClientError::InvalidSubscriptionId))
                         .expect("Send response error back");
@@ -350,8 +350,8 @@ fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(),
             let (subscription_id, send_back) = manager
                 .complete_pending_unsubscribe(response_id)
                 .ok_or(WsClientError::InvalidRequestId)?;
-            let result = match output {
-                Output::Success(success) => match serde_json::from_value::<bool>(success.result) {
+            let result = match response {
+                Response::Success(success) => match serde_json::from_value::<bool>(success.result) {
                     Ok(result) => result,
                     Err(err) => {
                         send_back
@@ -360,7 +360,7 @@ fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(),
                         return Ok(());
                     }
                 },
-                Output::Failure(failure) => {
+                Response::Failure(failure) => {
                     log::warn!("[backend] Unexpected response of unsubscribe request: {}", failure);
                     send_back
                         .send(Err(WsClientError::InvalidUnsubscribeResult))
@@ -390,16 +390,16 @@ fn handle_single_output(output: Output, manager: &mut TaskManager) -> Result<(),
     }
 }
 
-fn response_id_of(output: &Output) -> Result<u64, WsClientError> {
-    Ok(*output
+fn response_id_of(resp: &Response) -> Result<u64, WsClientError> {
+    Ok(*resp
         .id()
         .ok_or(WsClientError::InvalidRequestId)?
         .as_number()
         .expect("Response ID must be number"))
 }
 
-fn handle_batch_output(outputs: Vec<Output>, manager: &mut TaskManager) -> Result<(), WsClientError> {
-    let (min_response_id, max_response_id) = response_id_range_of(&outputs)?;
+fn handle_batch_output(responses: BatchResponse, manager: &mut TaskManager) -> Result<(), WsClientError> {
+    let (min_response_id, max_response_id) = response_id_range_of(&responses)?;
     // use the min id of batch request for managing task
     match manager.request_status(&min_response_id) {
         RequestStatus::PendingBatchMethodCall => {
@@ -411,7 +411,7 @@ fn handle_batch_output(outputs: Vec<Output>, manager: &mut TaskManager) -> Resul
             let send_back = manager
                 .complete_pending_batch_method_call(min_response_id)
                 .ok_or(WsClientError::InvalidRequestId)?;
-            send_back.send(Ok(outputs)).expect("Send batch response back");
+            send_back.send(Ok(responses)).expect("Send batch response back");
             Ok(())
         }
         RequestStatus::PendingMethodCall
@@ -422,11 +422,11 @@ fn handle_batch_output(outputs: Vec<Output>, manager: &mut TaskManager) -> Resul
     }
 }
 
-fn response_id_range_of(outputs: &[Output]) -> Result<(u64, u64), WsClientError> {
-    assert!(!outputs.is_empty());
-    let (mut min, mut max) = (u64::max_value(), u64::min_value());
-    for output in outputs {
-        let id = *output
+fn response_id_range_of(responses: &[Response]) -> Result<(u64, u64), WsClientError> {
+    assert!(!responses.is_empty());
+    let (mut min, mut max) = (u64::MAX, u64::MIN);
+    for response in responses {
+        let id = *response
             .id()
             .ok_or(WsClientError::InvalidRequestId)?
             .as_number()

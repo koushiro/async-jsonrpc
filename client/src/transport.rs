@@ -10,7 +10,7 @@ pub trait Transport {
     type Error: Error;
 
     /// Send a RPC call with the given method and parameters.
-    async fn request<M>(&self, method: M, params: Option<Params>) -> Result<Output, Self::Error>
+    async fn request<M>(&self, method: M, params: Option<Params>) -> Result<Response, Self::Error>
     where
         M: Into<String> + Send;
 }
@@ -19,7 +19,7 @@ pub trait Transport {
 #[async_trait::async_trait]
 pub trait BatchTransport: Transport {
     /// Send a batch of RPC calls with the given method and parameters.
-    async fn request_batch<I, M>(&self, batch: I) -> Result<Vec<Output>, Self::Error>
+    async fn request_batch<I, M>(&self, batch: I) -> Result<BatchResponse, Self::Error>
     where
         I: IntoIterator<Item = (M, Option<Params>)> + Send,
         I::IntoIter: Send,

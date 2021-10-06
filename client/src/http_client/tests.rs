@@ -63,13 +63,13 @@ async fn make_jsonrpc_request() {
     {
         let client = HttpClient::new(format!("http://{}/v2_no_params", addr)).unwrap();
         let response = client.request("foo", None).await.unwrap();
-        assert_eq!(response, Output::success(Value::String("x".to_string()), 1.into()));
+        assert_eq!(response, Response::success(Value::String("x".to_string()), 1.into()));
     }
 
     {
         let client = HttpClient::new(format!("http://{}/v2_params", addr)).unwrap();
         let response = client.request("bar", Some(Params::Array(vec![]))).await.unwrap();
-        assert_eq!(response, Output::success("y".into(), 1.into()));
+        assert_eq!(response, Response::success("y".into(), 1.into()));
     }
 
     {
@@ -81,8 +81,8 @@ async fn make_jsonrpc_request() {
         assert_eq!(
             response,
             vec![
-                Output::success("x".into(), 1.into()),
-                Output::success("y".into(), 2.into()),
+                Response::success("x".into(), 1.into()),
+                Response::success("y".into(), 2.into()),
             ]
         );
     }
@@ -136,13 +136,13 @@ async fn make_jsonrpc_request() {
     {
         let client = HttpClient::new(format!("http://{}/v2_no_params", addr)).unwrap();
         let response = client.request("foo", None).await.unwrap();
-        assert_eq!(response, Output::success(Value::String("x".to_string()), 1.into()));
+        assert_eq!(response, Response::success(Value::String("x".to_string()), 1.into()));
     }
 
     {
         let client = HttpClient::new(format!("http://{}/v2_params", addr)).unwrap();
         let response = client.request("bar", Some(Params::Array(vec![]))).await.unwrap();
-        assert_eq!(response, Output::success("y".into(), 1.into()));
+        assert_eq!(response, Response::success("y".into(), 1.into()));
     }
 
     {
@@ -154,8 +154,8 @@ async fn make_jsonrpc_request() {
         assert_eq!(
             response,
             vec![
-                Output::success("x".into(), 1.into()),
-                Output::success("y".into(), 2.into()),
+                Response::success("x".into(), 1.into()),
+                Response::success("y".into(), 2.into()),
             ]
         );
     }
