@@ -206,10 +206,10 @@ mod tests {
     #[test]
     fn notification_serialization() {
         for (notification, expect) in notification_cases() {
-            let ser = serde_json::to_string(&notification).unwrap();
-            assert_eq!(ser, expect);
-            let de = serde_json::from_str::<Notification>(expect).unwrap();
-            assert_eq!(de, notification);
+            assert_eq!(serde_json::to_string(&notification.as_ref()).unwrap(), expect);
+            assert_eq!(serde_json::to_string(&notification).unwrap(), expect);
+
+            assert_eq!(serde_json::from_str::<Notification>(expect).unwrap(), notification);
         }
 
         // JSON-RPC 2.0 valid notification
@@ -219,8 +219,7 @@ mod tests {
             r#"{"jsonrpc":"2.0","method":"foo"}"#,
         ];
         for case in valid_cases {
-            let request = serde_json::from_str::<Notification>(case);
-            assert!(request.is_ok());
+            assert!(serde_json::from_str::<Notification>(case).is_ok());
         }
 
         // JSON-RPC 2.0 invalid notification
@@ -234,8 +233,7 @@ mod tests {
             r#"{"jsonrpc":"2.0","unknown":[]}"#,
         ];
         for case in invalid_cases {
-            let request = serde_json::from_str::<Notification>(case);
-            assert!(request.is_err());
+            assert!(serde_json::from_str::<Notification>(case).is_err());
         }
     }
 }

@@ -270,10 +270,13 @@ mod tests {
     #[test]
     fn response_serialization() {
         for (response, expect) in response_cases() {
-            let ser = serde_json::to_string(&response).unwrap();
-            assert_eq!(ser, expect);
-            let de = serde_json::from_str::<Response>(expect).unwrap();
-            assert_eq!(de, response);
+            let response_obj = ResponseObj::Single(response.clone());
+
+            assert_eq!(serde_json::to_string(&response).unwrap(), expect);
+            assert_eq!(serde_json::to_string(&response_obj).unwrap(), expect);
+
+            assert_eq!(serde_json::from_str::<Response>(expect).unwrap(), response);
+            assert_eq!(serde_json::from_str::<ResponseObj>(expect).unwrap(), response_obj);
         }
 
         // JSON-RPC 1.0 valid response
@@ -282,8 +285,8 @@ mod tests {
             r#"{"result":null,"error":{"code": -32700,"message": "Parse error"},"id":1}"#,
         ];
         for case in valid_cases {
-            let response = serde_json::from_str::<Response>(case);
-            assert!(response.is_ok());
+            assert!(serde_json::from_str::<Response>(case).is_ok());
+            assert!(serde_json::from_str::<ResponseObj>(case).is_ok());
         }
 
         // JSON-RPC 1.0 invalid response
@@ -295,32 +298,31 @@ mod tests {
             r#"{"error":{"code": -32700,"message": "Parse error"},"id":1}"#,
             r#"{"unknown":[]}"#,
         ];
-
         for case in invalid_cases {
-            let response = serde_json::from_str::<Response>(case);
-            assert!(response.is_err());
+            assert!(serde_json::from_str::<Response>(case).is_err());
+            assert!(serde_json::from_str::<ResponseObj>(case).is_err());
         }
     }
 
     #[test]
     fn batch_response_serialization() {
         let batch_response = vec![
-            Response {
-                result: Some(Value::Bool(true)),
-                error: None,
-                id: Some(Id::Num(1)),
-            },
-            Response {
-                result: Some(Value::Bool(false)),
-                error: None,
-                id: Some(Id::Num(2)),
-            },
+            Response::success(Value::Bool(true), Id::Num(1)),
+            Response::success(Value::Bool(false), Id::Num(2)),
         ];
+        let batch_response_obj = ResponseObj::Batch(batch_response.clone());
         let batch_expect = r#"[{"result":true,"error":null,"id":1},{"result":false,"error":null,"id":2}]"#;
+
         assert_eq!(serde_json::to_string(&batch_response).unwrap(), batch_expect);
+        assert_eq!(serde_json::to_string(&batch_response_obj).unwrap(), batch_expect);
+
         assert_eq!(
             serde_json::from_str::<BatchResponse>(&batch_expect).unwrap(),
             batch_response
+        );
+        assert_eq!(
+            serde_json::from_str::<ResponseObj>(&batch_expect).unwrap(),
+            batch_response_obj
         );
 
         // JSON-RPC 1.0 valid batch response
@@ -330,8 +332,8 @@ mod tests {
             r#"[{"result":true,"error":null,"id":1}, {"result":null,"error":{"code": -32700,"message": "Parse error"},"id":1}]"#,
         ];
         for case in valid_cases {
-            let response = serde_json::from_str::<BatchResponse>(case);
-            assert!(response.is_ok());
+            assert!(serde_json::from_str::<BatchResponse>(case).is_ok());
+            assert!(serde_json::from_str::<ResponseObj>(case).is_ok());
         }
 
         // JSON-RPC 1.0 invalid batch response
@@ -344,8 +346,8 @@ mod tests {
             // r#"[]"#, // empty should be invalid
         ];
         for case in invalid_cases {
-            let response = serde_json::from_str::<BatchResponse>(case);
-            assert!(response.is_err());
+            assert!(serde_json::from_str::<BatchResponse>(case).is_err());
+            assert!(serde_json::from_str::<ResponseObj>(case).is_err());
         }
     }
 }

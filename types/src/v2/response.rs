@@ -241,10 +241,8 @@ mod tests {
     #[test]
     fn response_serialization() {
         for (success_response, expect) in success_response_cases() {
-            let ser = serde_json::to_string(&success_response).unwrap();
-            assert_eq!(ser, expect);
-            let de = serde_json::from_str::<Success>(expect).unwrap();
-            assert_eq!(de, success_response);
+            assert_eq!(serde_json::to_string(&success_response).unwrap(), expect);
+            assert_eq!(serde_json::from_str::<Success>(expect).unwrap(), success_response);
 
             let response = Response::Success(success_response);
             assert_eq!(serde_json::to_string(&response).unwrap(), expect);
@@ -256,10 +254,8 @@ mod tests {
         }
 
         for (failure_response, expect) in failure_response_cases() {
-            let ser = serde_json::to_string(&failure_response).unwrap();
-            assert_eq!(ser, expect);
-            let de = serde_json::from_str::<Failure>(expect).unwrap();
-            assert_eq!(de, failure_response);
+            assert_eq!(serde_json::to_string(&failure_response).unwrap(), expect);
+            assert_eq!(serde_json::from_str::<Failure>(expect).unwrap(), failure_response);
 
             let response = Response::Failure(failure_response);
             assert_eq!(serde_json::to_string(&response).unwrap(), expect);
@@ -277,8 +273,8 @@ mod tests {
             r#"{"jsonrpc":"2.0","error":{"code": -32700,"message": "Parse error"},"id":null}"#,
         ];
         for case in valid_cases {
-            let response = serde_json::from_str::<Response>(case);
-            assert!(response.is_ok());
+            assert!(serde_json::from_str::<Response>(case).is_ok());
+            assert!(serde_json::from_str::<ResponseObj>(case).is_ok());
         }
 
         // JSON-RPC 2.0 invalid response
@@ -290,8 +286,8 @@ mod tests {
             r#"{"jsonrpc":"2.0","unknown":[]}"#,
         ];
         for case in invalid_cases {
-            let response = serde_json::from_str::<Response>(case);
-            assert!(response.is_err());
+            assert!(serde_json::from_str::<Response>(case).is_err());
+            assert!(serde_json::from_str::<ResponseObj>(case).is_err());
         }
     }
 
@@ -300,10 +296,15 @@ mod tests {
         for ((success_resp, success_expect), (failure_resp, failure_expect)) in
             success_response_cases().into_iter().zip(failure_response_cases())
         {
-            let response = ResponseObj::Batch(vec![Response::Success(success_resp), Response::Failure(failure_resp)]);
+            let response = vec![Response::Success(success_resp), Response::Failure(failure_resp)];
+            let response_obj = ResponseObj::Batch(response.clone());
             let expect = format!("[{},{}]", success_expect, failure_expect);
+
             assert_eq!(serde_json::to_string(&response).unwrap(), expect);
-            assert_eq!(serde_json::from_str::<ResponseObj>(&expect).unwrap(), response);
+            assert_eq!(serde_json::to_string(&response_obj).unwrap(), expect);
+
+            assert_eq!(serde_json::from_str::<BatchResponse>(&expect).unwrap(), response);
+            assert_eq!(serde_json::from_str::<ResponseObj>(&expect).unwrap(), response_obj);
         }
     }
 }

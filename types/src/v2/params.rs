@@ -237,6 +237,7 @@ mod tests {
         let array = vec![Value::from(1), Value::Bool(true)];
         let params = Params::Array(array.clone());
         assert_eq!(serde_json::to_string(&params).unwrap(), r#"[1,true]"#);
+        assert_eq!(serde_json::to_string(&params.as_ref()).unwrap(), r#"[1,true]"#);
         assert_eq!(serde_json::from_str::<Params>(r#"[1,true]"#).unwrap(), params);
 
         let object = {
@@ -246,6 +247,7 @@ mod tests {
         };
         let params = Params::Map(object.clone());
         assert_eq!(serde_json::to_string(&params).unwrap(), r#"{"key":"value"}"#);
+        assert_eq!(serde_json::to_string(&params.as_ref()).unwrap(), r#"{"key":"value"}"#);
         assert_eq!(serde_json::from_str::<Params>(r#"{"key":"value"}"#).unwrap(), params);
 
         let params = Params::Array(vec![
@@ -261,6 +263,10 @@ mod tests {
         ]);
         assert_eq!(
             serde_json::to_string(&params).unwrap(),
+            r#"[null,true,-1,1,1.2,"hello",[],[1,true],{"key":"value"}]"#
+        );
+        assert_eq!(
+            serde_json::to_string(&params.as_ref()).unwrap(),
             r#"[null,true,-1,1,1.2,"hello",[],[1,true],{"key":"value"}]"#
         );
         assert_eq!(

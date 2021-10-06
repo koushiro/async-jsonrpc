@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::v2::{Id, Params, ParamsRef, Version};
 
 /// JSON-RPC 2.0 Request Object.
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 #[serde(untagged)]
 pub enum RequestRefObj<'a> {
@@ -28,7 +28,7 @@ impl<'a> fmt::Display for RequestRefObj<'a> {
 pub type BatchRequestRef<'a> = Vec<RequestRef<'a>>;
 
 /// Represents JSON-RPC 2.0 request call.
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct RequestRef<'a> {
     /// A String specifying the version of the JSON-RPC protocol.
@@ -87,7 +87,7 @@ impl<'a> RequestRef<'a> {
 // ################################################################################################
 
 /// JSON-RPC 2.0 Request Object.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(untagged)]
 pub enum RequestObj {
@@ -108,7 +108,7 @@ impl fmt::Display for RequestObj {
 pub type BatchRequest = Vec<Request>;
 
 /// Represents JSON-RPC 2.0 request call.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Request {
     /// A String specifying the version of the JSON-RPC protocol.
@@ -197,10 +197,15 @@ mod tests {
     #[test]
     fn request_serialization() {
         for (request, expect) in request_cases() {
-            let ser = serde_json::to_string(&request).unwrap();
-            assert_eq!(ser, expect);
-            let de = serde_json::from_str::<Request>(expect).unwrap();
-            assert_eq!(de, request);
+            let request_obj = RequestObj::Single(request.clone());
+            let request_ref = RequestRefObj::Single(request.as_ref());
+
+            assert_eq!(serde_json::to_string(&request).unwrap(), expect);
+            assert_eq!(serde_json::to_string(&request_obj).unwrap(), expect);
+            assert_eq!(serde_json::to_string(&request_ref).unwrap(), expect);
+
+            assert_eq!(serde_json::from_str::<Request>(expect).unwrap(), request);
+            assert_eq!(serde_json::from_str::<RequestObj>(expect).unwrap(), request_obj);
         }
 
         // JSON-RPC 2.0 valid request
@@ -210,8 +215,8 @@ mod tests {
             r#"{"jsonrpc":"2.0","method":"foo","id":1}"#,
         ];
         for case in valid_cases {
-            let request = serde_json::from_str::<Request>(case);
-            assert!(request.is_ok());
+            assert!(serde_json::from_str::<Request>(case).is_ok());
+            assert!(serde_json::from_str::<RequestObj>(case).is_ok());
         }
 
         // JSON-RPC 2.0 invalid request
@@ -225,19 +230,29 @@ mod tests {
             r#"{"jsonrpc":"2.0","unknown":[]}"#,
         ];
         for case in invalid_cases {
-            let request = serde_json::from_str::<Request>(case);
-            assert!(request.is_err());
+            assert!(serde_json::from_str::<Request>(case).is_err());
+            assert!(serde_json::from_str::<RequestObj>(case).is_err());
         }
     }
 
     #[test]
     fn batch_request_serialization() {
-        let batch_request = RequestObj::Batch(vec![
-            Request::new("foo", None, 1.into()),
-            Request::new("bar", None, 2.into()),
-        ]);
+        let batch_request = vec![Request::new("foo", None, 1.into()), Request::new("bar", None, 2.into())];
+        let batch_request_obj = RequestObj::Batch(batch_request.clone());
+        let batch_request_ref = RequestRefObj::Batch(batch_request.iter().map(|req| req.as_ref()).collect::<Vec<_>>());
         let batch_expect = r#"[{"jsonrpc":"2.0","method":"foo","id":1},{"jsonrpc":"2.0","method":"bar","id":2}]"#;
+
         assert_eq!(serde_json::to_string(&batch_request).unwrap(), batch_expect);
-        assert_eq!(serde_json::from_str::<RequestObj>(batch_expect).unwrap(), batch_request);
+        assert_eq!(serde_json::to_string(&batch_request_obj).unwrap(), batch_expect);
+        assert_eq!(serde_json::to_string(&batch_request_ref).unwrap(), batch_expect);
+
+        assert_eq!(
+            serde_json::from_str::<BatchRequest>(&batch_expect).unwrap(),
+            batch_request
+        );
+        assert_eq!(
+            serde_json::from_str::<RequestObj>(&batch_expect).unwrap(),
+            batch_request_obj
+        );
     }
 }

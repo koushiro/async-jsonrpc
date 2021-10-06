@@ -18,7 +18,7 @@ pub type BatchNotificationRef<'a> = Vec<NotificationRef<'a>>;
 /// The Server MUST NOT reply to a Notification, including those that are within a batch request.
 ///
 /// For JSON-RPC 1.0 specification, notification id **MUST** be Null.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct NotificationRef<'a> {
     /// A String containing the name of the method to be invoked.
     ///
@@ -85,7 +85,7 @@ pub type BatchNotification = Vec<Notification>;
 /// The Server MUST NOT reply to a Notification, including those that are within a batch request.
 ///
 /// For JSON-RPC 1.0 specification, notification id **MUST** be Null.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Notification {
     /// A String containing the name of the method to be invoked.
     ///
@@ -277,10 +277,10 @@ mod tests {
     #[test]
     fn notification_serialization() {
         for (notification, expect) in notification_cases() {
-            let ser = serde_json::to_string(&notification).unwrap();
-            assert_eq!(ser, expect);
-            let de = serde_json::from_str::<Notification>(expect).unwrap();
-            assert_eq!(de, notification);
+            assert_eq!(serde_json::to_string(&notification.as_ref()).unwrap(), expect);
+            assert_eq!(serde_json::to_string(&notification).unwrap(), expect);
+
+            assert_eq!(serde_json::from_str::<Notification>(expect).unwrap(), notification);
         }
 
         // JSON-RPC 1.0 valid notification
@@ -289,8 +289,7 @@ mod tests {
             r#"{"method":"foo","params":[],"id":null}"#,
         ];
         for case in valid_cases {
-            let request = serde_json::from_str::<Notification>(case);
-            assert!(request.is_ok());
+            assert!(serde_json::from_str::<Notification>(case).is_ok());
         }
 
         // JSON-RPC 1.0 invalid notification
@@ -305,28 +304,22 @@ mod tests {
             r#"{"unknown":[]}"#,
         ];
         for case in invalid_cases {
-            let request = serde_json::from_str::<Notification>(case);
-            assert!(request.is_err());
+            assert!(serde_json::from_str::<Notification>(case).is_err());
         }
     }
 
     #[test]
     fn batch_notification_serialization() {
-        let batch_notification = vec![
-            Notification {
-                method: "foo".into(),
-                params: vec![].into(),
-            },
-            Notification {
-                method: "bar".into(),
-                params: vec![].into(),
-            },
-        ];
+        let batch_notification = vec![Notification::new("foo", vec![]), Notification::new("bar", vec![])];
+        let batch_notification_ref = batch_notification.iter().map(|n| n.as_ref()).collect::<Vec<_>>();
         let batch_expect = r#"[{"method":"foo","params":[],"id":null},{"method":"bar","params":[],"id":null}]"#;
+
         assert_eq!(serde_json::to_string(&batch_notification).unwrap(), batch_expect);
+        assert_eq!(serde_json::to_string(&batch_notification_ref).unwrap(), batch_expect);
+
         assert_eq!(
             serde_json::from_str::<BatchNotification>(&batch_expect).unwrap(),
-            batch_notification
+            batch_notification,
         );
     }
 }
