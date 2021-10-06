@@ -24,6 +24,16 @@ impl<'a> fmt::Display for RequestRefObj<'a> {
     }
 }
 
+impl<'a> PartialEq<RequestObj> for RequestRefObj<'a> {
+    fn eq(&self, other: &RequestObj) -> bool {
+        match (self, other) {
+            (Self::Single(req1), RequestObj::Single(req2)) => req1.eq(req2),
+            (Self::Batch(req1), RequestObj::Batch(req2)) => req1.eq(req2),
+            _ => false,
+        }
+    }
+}
+
 /// Represents JSON-RPC 2.0 batch request call.
 pub type BatchRequestRef<'a> = Vec<RequestRef<'a>>;
 
@@ -101,6 +111,16 @@ impl fmt::Display for RequestObj {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let json = serde_json::to_string(self).expect("`RequestObj` is serializable");
         write!(f, "{}", json)
+    }
+}
+
+impl<'a> PartialEq<RequestRefObj<'a>> for RequestObj {
+    fn eq(&self, other: &RequestRefObj<'a>) -> bool {
+        match (self, other) {
+            (Self::Single(req1), RequestRefObj::Single(req2)) => req1.eq(req2),
+            (Self::Batch(req1), RequestRefObj::Batch(req2)) => req1.eq(req2),
+            _ => false,
+        }
     }
 }
 
