@@ -1,4 +1,4 @@
-name: build
+name: Test
 
 on:
   push:
@@ -6,35 +6,8 @@ on:
   pull_request:
 
 jobs:
-  rustfmt-and-clippy:
-    name: Rustfmt And Clippy
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ubuntu-latest]
-        toolchain: [stable]
-    runs-on: ${{ matrix.platform }}
-
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v2
-
-      - name: Install Rust Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.toolchain }}
-          override: true
-          components: rustfmt, clippy
-
-      - name: Check Code Format
-        run: cargo fmt --all -- --check
-
-      - name: Make Clppy Happy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-
-  jsonrpc-types:
-    name: Build `jsonrpc-types`
+  types:
+    name: jsonrpc-types
     strategy:
       fail-fast: false
       matrix:
@@ -60,8 +33,8 @@ jobs:
       - name: Build (no_std)
         run: cargo build -p jsonrpc-types --no-default-features --features 'v1,v2' --target thumbv6m-none-eabi
 
-  jsonrpc-client:
-    name: Build `async-jsonrpc-client`
+  client:
+    name: async-jsonrpc-client
     strategy:
       fail-fast: false
       matrix:
@@ -79,7 +52,6 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
           override: true
-          target: thumbv6m-none-eabi
 
       - name: Cache Dependencies & Build Outputs
         uses: actions/cache@v2
@@ -95,23 +67,3 @@ jobs:
           cargo test --manifest-path client/Cargo.toml --no-default-features --features 'http-tokio'
           cargo test --manifest-path client/Cargo.toml --no-default-features --features 'ws-async-std'
           cargo test --manifest-path client/Cargo.toml --no-default-features --features 'ws-tokio'
-
-  coverage:
-    name: Code Coverage
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v2
-
-      - name: Install Rust Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Generate Code Coverage
-        uses: actions-rs/tarpaulin@v0.1
-
-      - name: Upload Code Coverage
-        uses: codecov/codecov-action@v2
