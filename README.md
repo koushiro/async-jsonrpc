@@ -6,7 +6,7 @@ An async JSON-RPC 2.0 crate written in Rust.
 [![codecov-svg]][codecov-url]
 [![deps-svg]][deps-url]
 
-[ga-svg]: https://github.com/koushiro/async-jsonrpc/workflows/Test/badge.svg
+[ga-svg]: https://github.com/koushiro/async-jsonrpc/workflows/test/badge.svg
 [ga-url]: https://github.com/koushiro/async-jsonrpc/actions
 [codecov-svg]: https://img.shields.io/codecov/c/github/koushiro/async-jsonrpc
 [codecov-url]: https://codecov.io/gh/koushiro/async-jsonrpc
