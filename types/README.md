@@ -4,7 +4,7 @@
 [![crates-svg]][crates-url]
 [![docs-svg]][docs-url]
 
-[ga-svg]: https://github.com/koushiro/async-jsonrpc/workflows/build/badge.svg
+[ga-svg]: https://github.com/koushiro/async-jsonrpc/workflows/test/badge.svg
 [ga-url]: https://github.com/koushiro/async-jsonrpc/actions
 [crates-svg]: https://img.shields.io/crates/v/jsonrpc-types
 [crates-url]: https://crates.io/crates/jsonrpc-types
