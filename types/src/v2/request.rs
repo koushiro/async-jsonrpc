@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::v2::{Id, Params, ParamsRef, Version};
 
 /// JSON-RPC 2.0 Request Object.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 #[serde(untagged)]
 pub enum RequestRefObj<'a> {
@@ -38,7 +38,7 @@ impl<'a> PartialEq<RequestObj> for RequestRefObj<'a> {
 pub type BatchRequestRef<'a> = Vec<RequestRef<'a>>;
 
 /// Represents JSON-RPC 2.0 request call.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct RequestRef<'a> {
     /// A String specifying the version of the JSON-RPC protocol.
@@ -164,7 +164,7 @@ impl<'a> PartialEq<RequestRef<'a>> for Request {
 
 impl Request {
     /// Creates a JSON-RPC 2.0 request call.
-    pub fn new<M: Into<String>>(method: M, params: Option<Params>, id: Id) -> Self {
+    pub fn new(method: impl Into<String>, params: Option<Params>, id: Id) -> Self {
         Self {
             jsonrpc: Version::V2_0,
             method: method.into(),

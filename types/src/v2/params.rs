@@ -66,7 +66,7 @@ impl<'a> de::Visitor<'a> for VersionVisitor {
 ///
 /// If present, parameters for the rpc call MUST be provided as a Structured value.
 /// Either by-position through an Array or by-name through an Object.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Debug, Eq, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum ParamsRef<'a> {
     /// Positional params (slice).
