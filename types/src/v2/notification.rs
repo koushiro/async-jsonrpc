@@ -17,7 +17,7 @@ pub type BatchNotificationRef<'a> = Vec<NotificationRef<'a>>;
 /// As such, the Client would not be aware of any errors (like e.g. "Invalid params","Internal error").
 ///
 /// The Server MUST NOT reply to a Notification, including those that are within a batch request.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct NotificationRef<'a> {
     /// A String specifying the version of the JSON-RPC protocol.
@@ -109,7 +109,7 @@ impl<'a> PartialEq<NotificationRef<'a>> for Notification {
 
 impl Notification {
     /// Creates a JSON-RPC 2.0 request which is a notification.
-    pub fn new<M: Into<String>>(method: M, params: Option<Params>) -> Self {
+    pub fn new(method: impl Into<String>, params: Option<Params>) -> Self {
         Self {
             jsonrpc: Version::V2_0,
             method: method.into(),
@@ -152,25 +152,25 @@ impl<T: Serialize + DeserializeOwned> SubscriptionNotificationParams<T> {
 /// Server notification about something the client is subscribed to.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SubscriptionNotification<T = Value> {
+pub struct SubscriptionNotification<P = SubscriptionNotificationParams> {
     /// A String specifying the version of the JSON-RPC protocol.
     pub jsonrpc: Version,
     /// A String containing the name of the method that was used for the subscription.
     pub method: String,
     /// Parameters of the subscription notification.
-    pub params: SubscriptionNotificationParams<T>,
+    pub params: P,
 }
 
-impl<T: Serialize> fmt::Display for SubscriptionNotification<T> {
+impl<P: Serialize> fmt::Display for SubscriptionNotification<P> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let json = serde_json::to_string(self).expect("`SubscriptionNotification` is serializable");
         write!(f, "{}", json)
     }
 }
 
-impl<T: Serialize + DeserializeOwned> SubscriptionNotification<T> {
+impl<P: Serialize + DeserializeOwned> SubscriptionNotification<P> {
     /// Creates a JSON-RPC 2.0 notification which is a subscription notification.
-    pub fn new<M: Into<String>>(method: M, params: SubscriptionNotificationParams<T>) -> Self {
+    pub fn new(method: impl Into<String>, params: P) -> Self {
         Self {
             jsonrpc: Version::V2_0,
             method: method.into(),
@@ -235,5 +235,50 @@ mod tests {
         for case in invalid_cases {
             assert!(serde_json::from_str::<Notification>(case).is_err());
         }
+    }
+
+    #[test]
+    fn subscription_notification_serialization() {
+        let params = SubscriptionNotificationParams::new(Id::Str("test1".into()), Value::Bool(true));
+        let notification = SubscriptionNotification::new("test_method", params);
+        let expect = r#"{"jsonrpc":"2.0","method":"test_method","params":{"subscription":"test1","result":true}}"#;
+        assert_eq!(serde_json::to_string(&notification).unwrap(), expect);
+        assert_eq!(
+            serde_json::from_str::<SubscriptionNotification>(expect).unwrap(),
+            notification
+        );
+
+        let params = SubscriptionNotificationParams::new(Id::Str("test1".into()), 12345u32);
+        let notification = SubscriptionNotification::new("test_method", params);
+        let expect = r#"{"jsonrpc":"2.0","method":"test_method","params":{"subscription":"test1","result":12345}}"#;
+        assert_eq!(serde_json::to_string(&notification).unwrap(), expect);
+        assert_eq!(
+            serde_json::from_str::<SubscriptionNotification<SubscriptionNotificationParams<u32>>>(expect).unwrap(),
+            notification
+        );
+
+        // ========================================================================================
+
+        #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+        #[serde(deny_unknown_fields)]
+        pub struct MySubscriptionNotificationParams<T = Value>((Id, T));
+
+        let params = MySubscriptionNotificationParams((Id::Str("test1".into()), Value::Bool(true)));
+        let notification = SubscriptionNotification::new("test_method", params);
+        let expect = r#"{"jsonrpc":"2.0","method":"test_method","params":["test1",true]}"#;
+        assert_eq!(serde_json::to_string(&notification).unwrap(), expect);
+        assert_eq!(
+            serde_json::from_str::<SubscriptionNotification<MySubscriptionNotificationParams>>(expect).unwrap(),
+            notification
+        );
+
+        let params = MySubscriptionNotificationParams((Id::Str("test1".into()), 12345u32));
+        let notification = SubscriptionNotification::new("test_method", params);
+        let expect = r#"{"jsonrpc":"2.0","method":"test_method","params":["test1",12345]}"#;
+        assert_eq!(serde_json::to_string(&notification).unwrap(), expect);
+        assert_eq!(
+            serde_json::from_str::<SubscriptionNotification<MySubscriptionNotificationParams<u32>>>(expect).unwrap(),
+            notification
+        );
     }
 }

@@ -18,7 +18,7 @@ pub type BatchNotificationRef<'a> = Vec<NotificationRef<'a>>;
 /// The Server MUST NOT reply to a Notification, including those that are within a batch request.
 ///
 /// For JSON-RPC 1.0 specification, notification id **MUST** be Null.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct NotificationRef<'a> {
     /// A String containing the name of the method to be invoked.
     ///
@@ -196,7 +196,7 @@ impl<'de> de::Deserialize<'de> for Notification {
 
 impl Notification {
     /// Creates a JSON-RPC 1.0 request which is a notification.
-    pub fn new<M: Into<String>, P: Into<Params>>(method: M, params: P) -> Self {
+    pub fn new(method: impl Into<String>, params: impl Into<Params>) -> Self {
         Self {
             method: method.into(),
             params: params.into(),
