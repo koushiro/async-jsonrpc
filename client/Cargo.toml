@@ -42,7 +42,7 @@ surf = { version = "2.1", default-features = false, features = ["curl-client"], 
 reqwest = { version = "0.11", features = ["json"], optional = true }
 
 # WebSocket (async-std / tokio)
-async-tungstenite = { version = "0.15", optional = true }
+async-tungstenite = { version = "0.16", optional = true }
 
 # Runtime
 async-std = { version = "1.9", optional = true }
