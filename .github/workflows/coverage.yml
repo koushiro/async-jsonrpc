@@ -27,4 +27,4 @@ jobs:
         uses: actions-rs/tarpaulin@v0.1
 
       - name: Upload Code Coverage
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v3
